@@ -7,16 +7,24 @@ MEMORY
 
 ENTRY(Reset);
 EXTERN(RESET_VECTOR);
+EXTERN(_EXCEPTIONS);
 
 SECTIONS
 {
+  PROVIDE(_sstack = ORIGIN(RAM) + LENGTH(RAM));
+
   .vector_table ORIGIN(FLASH) :
   {
+    _vector_table = .;
+    
     /* initial Stack Pointer */
-    LONG(ORIGIN(RAM) + LENGTH(RAM));
+    LONG(_sstack);
 
     /* Reset vector */
     KEEP(*(.vector_table.reset_vector));
+
+    /* Exceptions vectors */
+    KEEP(*(.vector_table.exceptions))
   } > FLASH
 
   .text :
