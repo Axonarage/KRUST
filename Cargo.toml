@@ -7,7 +7,7 @@ edition = "2024"
 
 [[bin]]
 name = "krust"
-path = "src/init/init.rs"
+path = "src/krust.rs"
 
 [profile.dev]
 panic = "abort"
