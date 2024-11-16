@@ -11,4 +11,7 @@ rustup default nightly
 rustup target add thumbv7em-none-eabihf
 
 ## Simple cargo build
-cargo build --target thumbv7em-none-eabihf
+cargo build
+
+## Divers
+La target qemu utilisée pour les test sur Cortex-M4 est la netduinoplus2 (microcontrolleur STM32F405RGT6)

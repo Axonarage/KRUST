@@ -1,16 +1,18 @@
 cargo-features = ["edition2024"]
 
 [package]
-name = "rustik"
+name = "krust"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
+[[bin]]
+name = "krust"
+path = "src/krust.rs"
 
-# the profile used for `cargo build`
 [profile.dev]
-panic = "abort" # disable stack unwinding on panic
+panic = "abort"
 
-# the profile used for `cargo build --release`
 [profile.release]
-panic = "abort" # disable stack unwinding on panic
+panic = "abort"
+
+[dependencies]
