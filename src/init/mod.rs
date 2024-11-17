@@ -78,9 +78,9 @@ pub static RESET_VECTOR: unsafe extern "C" fn() -> ! = Reset;
 pub static _EXCEPTIONS: ExceptionsHandlers = ExceptionsHandlers {
     NMI: handlers::DefaultHandler,
     HardFault: handlers::HardFaultHandler,
-    MemManage: handlers::ConfigurableFaultHandler,
-    BusFault: handlers::ConfigurableFaultHandler,
-    UsageFault: handlers::ConfigurableFaultHandler,
+    MemManage: handlers::MemoryManagementFaultHandler,
+    BusFault: handlers::BusFaultHandler,
+    UsageFault: handlers::UsageFaultHandler,
     Reserved_7: 0,
     Reserved_8: 0,
     Reserved_9: 0,

@@ -38,7 +38,7 @@ pub fn main() -> ! {
     */
     unsafe {
         // Attempt to access an unimplemented coprocessor
-        trigger_nocp();
+        trigger_lsperr();
 
         hprintln!("This line will not be reached.").unwrap();
     }
@@ -54,6 +54,15 @@ unsafe fn trigger_nocp() {
             "MRC p15, 0, r0, c15, c0, 0", // Access a system control register via coprocessor
             options(nostack)
         );
+    }
+}
+
+#[inline(never)]
+unsafe fn trigger_lsperr() {
+    let _ = 1.0f32 + 2.0f32; // Perform floating-point operation
+    unsafe {
+        asm!("LDR R0, =0xFFFFFFFF"); // Load an invalid address
+        asm!("LDR R1, [R0]");        // Access invalid memory
     }
 }
 

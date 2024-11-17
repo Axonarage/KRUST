@@ -1,6 +1,7 @@
 use core::sync::atomic::{compiler_fence, Ordering};
 use cortex_m_semihosting::hprintln;
 
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn DefaultHandler() -> ! {
     loop {
@@ -9,11 +10,19 @@ pub unsafe extern "C" fn DefaultHandler() -> ! {
     }
 }
 
+
+macro_rules! debug_log {
+    ($($arg:tt)*) => {
+        hprintln!("{}", format_args!($($arg)*)).ok();
+    };
+}
+
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn HardFaultHandler() -> ! {
 
     /*
-        Hard Fault stats Register
+        Hard Fault status Register
 
         Address offset : 0x2C
     
@@ -29,43 +38,85 @@ pub unsafe extern "C" fn HardFaultHandler() -> ! {
 
         https://developer.arm.com/documentation/dui0552/a/cortex-m3-peripherals/system-control-block/hardfault-status-register - Section 4.4.14
      */
-    const HFSR_ADDR: u32 = 0xE000ED2C;
 
+    const HFSR_ADDR: u32 = 0xE000ED2C;
+    let hfsr_value: u32;
     unsafe {
         // Read the value from the HFSR address
-        let hfsr_value: u32 = core::ptr::read_volatile(HFSR_ADDR as *const u32);
+        hfsr_value = core::ptr::read_volatile(HFSR_ADDR as *const u32);
+    }
+    let debug_vt = (hfsr_value >> 31) & 1;
+    let forced = (hfsr_value >> 30) & 1;
+    let vecttbl = (hfsr_value >> 1) & 1;
 
-        let debug_vt = (hfsr_value >> 31) & 1;
-        let forced = (hfsr_value >> 30) & 1;
-        let vecttbl = (hfsr_value >> 1) & 1;
+    if debug_vt == 1 {
+        debug_log!("Debug is used.");
+    }
+    if forced == 1 {
+        // inspect other fault status registers
+        debug_log!("Forced hard fault. Need to inspect the other fault status registers.");
 
-        if debug_vt == 1 {
-            debug_log(format_args!("Debug is used."))
+        unsafe {
+            FaultHandler();
         }
-        if forced == 1 {
-            // inspect other fault status registers
-            debug_log(format_args!("Forced hard fault. Need to inspect the other fault status registers."));
-            // TO DO
-            // INSPECT
-            ConfigurableFaultHandler();  
-        }
-        if vecttbl == 1 {
-            debug_log(format_args!("Bus fault while trying to read the vector table."));
-            //asm!(
-            //    "BKPT #0"
-            //);
-        }
+    }
+    if vecttbl == 1 {
+        debug_log!("Bus fault while trying to read the vector table.");
+        //asm!(
+        //    "BKPT #0"
+        //);
+    }
 
-        // Keep the program in an infinite loop
-        loop {
-            core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    // Keep the program in an infinite loop
+    loop {
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+
+#[allow(non_snake_case)]
+unsafe fn FaultHandler() -> ! {
+    const CFSR_ADDR: u32 = 0xE000ED28;
+    let cfsr_value: u32;
+
+    unsafe {
+        cfsr_value = core::ptr::read_volatile(CFSR_ADDR as *const u32);
+    }
+
+    // UFSR : Usage Fault status register
+    let ufsr: u32 = cfsr_value >> 16;
+    let ufsr_mask: u32 = 0b1100001111;
+
+    // BFSR : Bus Fault status register
+    let bfsr: u32 = (cfsr_value & 0xffff) >> 8;
+    let bfsr_mask: u32 = 0b10111111;
+
+    // MMFSR : Memory Management Fault status register
+    let mmfsr: u32 = cfsr_value & 0xff;
+    let mmfsr_mask: u32 = 0b10111011;
+
+    if (ufsr & ufsr_mask) != 0 {
+        unsafe {
+            UsageFaultHandler();
         }
+    } else if (bfsr & bfsr_mask) != 0 {
+        unsafe {
+            BusFaultHandler();
+        }
+    } else if (mmfsr & mmfsr_mask) != 0 {
+        unsafe {
+            MemoryManagementFaultHandler();
+        }
+    }
+
+    loop {
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
     }
 }
 
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn ConfigurableFaultHandler() -> ! {
+pub unsafe extern "C" fn UsageFaultHandler() -> ! {
     /*
         Configurable Fault Status Register
 
@@ -86,6 +137,60 @@ pub unsafe extern "C" fn ConfigurableFaultHandler() -> ! {
         Bit 16     : UNDEFINSTR : Undefined instruction usage fault. When this bit is set to 1, the PC value stacked for the exception return points to the 
                                   undefined instruction. An undefined instruction is an instruction that the processor cannot decode.
 
+        https://developer.arm.com/documentation/dui0552/a/cortex-m3-peripherals/system-control-block/hardfault-status-register - Section 4.4.11
+    */
+
+    const CFSR_ADDR: u32 = 0xE000ED28;
+    let cfsr_value: u32;
+
+    unsafe {
+        cfsr_value = core::ptr::read_volatile(CFSR_ADDR as *const u32);
+    }
+
+    // UFSR : Usage Fault status register
+    let ufsr: u32 = cfsr_value >> 16;
+    let ufsr_mask: u32 = 0b1100001111;
+
+    const DIVBYZERO_BIT: u32 = 25;
+    const UNALIGNED_BIT: u32 = 24;
+    const NOCP_BIT: u32 = 19;
+    const INVPC_BIT: u32 = 18;
+    const INVSTATE_BIT: u32 = 17;
+    const UNDEFINSTR_BIT: u32 = 16;
+
+    const USAGE_FAULT_MESSAGES: &[(&str, u32)] = &[
+        ("Divide by zero usage fault.", DIVBYZERO_BIT),
+        ("Unaligned access usage fault.", UNALIGNED_BIT),
+        ("No coprocessor usage fault.", NOCP_BIT),
+        ("Invalid PC load usage fault, caused by an invalid PC load by EXC_RETURN.", INVPC_BIT),
+        ("Invalid state usage fault.", INVSTATE_BIT),
+        ("Undefined instruction usage fault.", UNDEFINSTR_BIT),
+    ];
+
+    if (ufsr & ufsr_mask) != 0 {
+        debug_log!("Usage Fault.");
+        
+        for (message, bit) in USAGE_FAULT_MESSAGES {
+            if (cfsr_value >> bit) & 1 == 1 {
+                debug_log!("{}", message);
+            }
+        }
+    }
+
+    loop {
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
+
+}
+
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn BusFaultHandler() -> ! {
+    /*
+        Configurable Fault Status Register
+
+        Address offset : 0x28
+    
         Bus Fault Status Register
 
         Bit 15     : BFARVALID  : Bus Fault Address Register (BFAR) valid flag. The processor sets this bit to 1 after a bus fault where the address is known. 
@@ -108,6 +213,82 @@ pub unsafe extern "C" fn ConfigurableFaultHandler() -> ! {
         Bit 8      : IBUSERR    : Instruction bus error. The processor detects the instruction bus error on prefetching an instruction, but it sets the IBUSERR 
                                   flag to 1 only if it attempts to issue the faulting instruction.
         
+        https://developer.arm.com/documentation/dui0552/a/cortex-m3-peripherals/system-control-block/hardfault-status-register - Section 4.4.12
+
+
+        Bus Fault Address Register
+
+        Address offset : 0x38
+
+        Bits 31-0  : BFAR       : Bus fault address. When the BFARVALID bit of the BFSR is set to 1, this field holds the address of the location that generated the 
+                                  bus fault. When an unaligned access faults the address in the BFAR is the one requested by the instruction, even if it is not the 
+                                  address of the fault. 
+
+        https://developer.arm.com/documentation/dui0552/a/cortex-m3-peripherals/system-control-block/hardfault-status-register - Section 4.4.16
+    */
+
+    const CFSR_ADDR: u32 = 0xE000ED28;
+    const BFAR_ADDR: u32 = 0xE000ED38;
+
+    let cfsr_value: u32;
+    let bfar_value: u32;
+
+    unsafe {
+        cfsr_value = core::ptr::read_volatile(CFSR_ADDR as *const u32);
+    }
+
+    // BFSR : Bus Fault status register
+    let bfsr: u32 = (cfsr_value & 0xffff) >> 8;
+    let bfsr_mask: u32 = 0b10111111;
+
+    const BFARVALID_BIT: u32 = 15;
+    const LSPEERR_BIT: u32 = 13;
+    const STKERR_BIT: u32 = 12;
+    const UNSTKERR_BIT: u32 = 11;
+    const IMPRECISERR_BIT: u32 = 10;
+    const PRECISERR_BIT: u32 = 9;
+    const IBUERR_BIT: u32 = 8;
+
+    const BUS_FAULT_MESSAGES: &[(&str, u32)] = &[
+        ("Bus fault on floating-point lazy state preservation.", LSPEERR_BIT),
+        ("Bus fault on stacking for exception entry.", STKERR_BIT),
+        ("Bus fault on unstacking for a return from exception.", UNSTKERR_BIT),
+        ("Imprecise data bus error.", IMPRECISERR_BIT),
+        ("Precise data bus error.", PRECISERR_BIT),
+        ("Instruction bus error.", IBUERR_BIT),
+    ];
+
+    if (bfsr & bfsr_mask) != 0 {
+        debug_log!("Bus Fault.");
+        
+        for (message, bit) in BUS_FAULT_MESSAGES {
+            if (cfsr_value >> bit) & 1 == 1 {
+                debug_log!("{}", message);
+            }
+        }
+    }
+
+    // Bus Fault Address Register (BFAR) valid flag.
+    if (cfsr_value >> BFARVALID_BIT) & 1 == 1 {
+        unsafe {
+            bfar_value = GetFaultAddress(BFAR_ADDR);
+        }
+        debug_log!("Fault at address {:#X}", bfar_value);
+    }
+
+    loop {
+        core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn MemoryManagementFaultHandler() -> ! {
+    /*
+        Configurable Fault Status Register
+
+        Address offset : 0x28
+    
         Memory Management Fault Status Address Register
 
         Bit 7      : MMARVALID  : Memory Management Fault Address Register (MMAR) valid flag. If a memory management fault occurs and is escalated to a hard fault 
@@ -127,118 +308,86 @@ pub unsafe extern "C" fn ConfigurableFaultHandler() -> ! {
                                   this bit is 1, the PC value stacked for the exception return points to the faulting instruction. The processor has not written a 
                                   fault address to the MMAR.
 
-        https://developer.arm.com/documentation/dui0552/a/cortex-m3-peripherals/system-control-block/hardfault-status-register - Section 4.4.10
-     */
+        https://developer.arm.com/documentation/dui0552/a/cortex-m3-peripherals/system-control-block/hardfault-status-register - Section 4.4.13
+
+
+        Memory Management Fault Address Register
+
+        Address offset : 0x34
+
+        Bits 31-0  : MMFAR      : Memory management fault address. When the MMARVALID bit of the MMFSR is set to 1, this field holds the address of the location that 
+                                  generated the memory management fault. When an unaligned access faults, the address is the actual address that faulted. Because a 
+                                  single read or write instruction can be split into multiple aligned accesses, the fault address can be any address in the range of 
+                                  the requested access size.
+
+        https://developer.arm.com/documentation/dui0552/a/cortex-m3-peripherals/system-control-block/hardfault-status-register - Section 4.4.15
+    */
+
     const CFSR_ADDR: u32 = 0xE000ED28;
-    
-    unsafe{
-        let cfsr_value: u32 = core::ptr::read_volatile(CFSR_ADDR as *const u32);
+    const MMFAR_ADDR: u32 = 0xE000ED34;
 
-        // UFSR : Usage Fault status register
-        let divbyzero = (cfsr_value >> 25) & 1;
-        let unaligned = (cfsr_value >> 24) & 1;
-        let nocp = (cfsr_value >> 19) & 1;
-        let invpc = (cfsr_value >> 18) & 1;
-        let invstate = (cfsr_value >> 17) & 1;
-        let undefinstr = (cfsr_value >> 16) & 1;
+    let cfsr_value: u32;
+    let mmfar_value: u32;
 
-        // BFSR : Bus Fault status register
-        let bfarvalid = (cfsr_value >> 15) & 1;
-        let lsperr = (cfsr_value >> 13) & 1;
-        let stkerr = (cfsr_value >> 12) & 1;
-        let unstkerr = (cfsr_value >> 11) & 1;
-        let impreciserr = (cfsr_value >> 10) & 1;
-        let preciserr = (cfsr_value >> 9) & 1;
-        let ibuserr = (cfsr_value >> 8) & 1;
+    unsafe {
+        cfsr_value = core::ptr::read_volatile(CFSR_ADDR as *const u32);
+    }
 
-        // MMFSR : Memory Management Fault status address register
-        let mmarvalid = (cfsr_value >> 7) & 1;
-        let mlsperr = (cfsr_value >> 5) & 1;
-        let mstkerr = (cfsr_value >> 4) & 1;
-        let munstkerr = (cfsr_value >> 3) & 1;
-        let daccviol = (cfsr_value >> 1) & 1;
-        let iaccviol = (cfsr_value >> 0) & 1;
+    // MMFSR : Memory Management Fault status register
+    let mmfsr: u32 = cfsr_value & 0xff;
+    let mmfsr_mask: u32 = 0b10111011;
 
-        if divbyzero == 1 || unaligned == 1 || nocp == 1 || invpc == 1 || invstate == 1 || undefinstr == 1 {
-            debug_log(format_args!("Usage Fault."));
-            
-            if divbyzero == 1 {
-                debug_log(format_args!("Divide by zero usage fault."));
-            }
-            if unaligned == 1 {
-                debug_log(format_args!("Unaligned access usage fault."));
-            }
-            if nocp == 1 {
-                debug_log(format_args!("No coprocessor usage fault."));
-            }
-            if invpc == 1 {
-                debug_log(format_args!("Invalid PC load usage fault, caused by an invalid PC load by EXC_RETURN."));
-            }
-            if invstate == 1 {
-                debug_log(format_args!("Invalid state usage fault."));
-            }
-            if undefinstr == 1 {
-                debug_log(format_args!("Undefined instruction usage fault."));
-            }
-        }
+    const MMARVALID_BIT: u32 = 7;
+    const MLSPEERR_BIT: u32 = 5;
+    const MSTKERR_BIT: u32 = 4;
+    const MUNSTKERR_BIT: u32 = 3;
+    const DACCVIOL_BIT: u32 = 1;
+    const IACCVIOL_BIT: u32 = 0;
 
-        if bfarvalid == 1 || lsperr == 1 || stkerr == 1 || unstkerr == 1 || impreciserr == 1 || preciserr == 1 || ibuserr == 1 {
-            debug_log(format_args!("Bus Fault."));
+    const MEMORY_FAULT_MESSAGES: &[(&str, u32)] = &[
+        ("MemManage fault occurred during floating-point lazy state preservation.", MLSPEERR_BIT),
+        ("Memory manager fault on stacking for exception entry.", MSTKERR_BIT),
+        ("Memory manager fault on unstacking for a return from exception.", MUNSTKERR_BIT),
+        ("Data access violation flag.", DACCVIOL_BIT),
+        ("Instruction access violation flag.", IACCVIOL_BIT),
+    ];
 
-            if bfarvalid == 1 {
-                debug_log(format_args!("Bus Fault Address Register (BFAR) valid flag."));
-            }
-            if lsperr == 1 {
-                debug_log(format_args!("Bus fault on floating-point lazy state preservation."));
-            }
-            if stkerr == 1 {
-                debug_log(format_args!("Bus fault on stacking for exception entry."));
-            }
-            if unstkerr == 1 {
-                debug_log(format_args!("Bus fault on unstacking for a return from exception."));
-            }
-            if impreciserr == 1 {
-                debug_log(format_args!("Imprecise data bus error."));
-            }
-            if preciserr == 1 {
-                debug_log(format_args!("Precise data bus error."));
-            }
-            if ibuserr == 1 {
-                debug_log(format_args!("Instruction bus error."));
-            }
-        }
-
-        if mmarvalid == 1 || mlsperr == 1 || mstkerr == 1 || munstkerr == 1 || daccviol == 1 || iaccviol == 1 {
-            debug_log(format_args!("Memory Management Fault."));
-            
-            if mmarvalid == 1 {
-                debug_log(format_args!("Memory Management Fault Address Register (MMAR) valid flag."));
-            }
-            if mlsperr == 1 {
-                debug_log(format_args!("MemManage fault occurred during floating-point lazy state preservation."));
-            }
-            if mstkerr == 1 {
-                debug_log(format_args!("Memory manager fault on stacking for exception entry."));
-            }
-            if munstkerr == 1 {
-                debug_log(format_args!("Memory manager fault on unstacking for a return from exception."));
-            }
-            if daccviol == 1 {
-                debug_log(format_args!("Data access violation flag."));
-            }
-            if iaccviol == 1 {
-                debug_log(format_args!("Instruction access violation flag."));
+    if (mmfsr & mmfsr_mask) != 0 {
+        debug_log!("Memory Management Fault.");
+        
+        for (message, bit) in MEMORY_FAULT_MESSAGES {
+            if (cfsr_value >> bit) & 1 == 1 {
+                debug_log!("{}", message);
             }
         }
     }
 
+    // Memory Management Fault Address Register (MMAR) valid flag.
+    if (cfsr_value >> MMARVALID_BIT) & 1 == 1 {
+        unsafe {
+            mmfar_value = GetFaultAddress(MMFAR_ADDR);
+        }
+        debug_log!("Fault at address {:#X}", mmfar_value);
+        // TO CHECK, PRINT LR/ EXC_RETURN value. (Seems to be but not referenced in the table exception return behavior)
+        // OUTPUT : 
+        //      Bus Fault.
+        //      Precise data bus error.
+        //      Fault at address 0xFFFFFFFC
+
+    }
+
     loop {
-        // Optional: You could trigger a breakpoint for debugging here
         core::sync::atomic::compiler_fence(core::sync::atomic::Ordering::SeqCst);
     }
 }
 
-fn debug_log(args: core::fmt::Arguments) {
-    // cortex-m-semihosting logging
-    hprintln!("{}", args).ok();
+#[allow(non_snake_case)]
+unsafe fn GetFaultAddress(ADDR: u32) -> u32 {
+    let addr_value: u32;
+
+    unsafe {
+        addr_value = core::ptr::read_volatile(ADDR as *const u32);
+    }
+
+    addr_value
 }
