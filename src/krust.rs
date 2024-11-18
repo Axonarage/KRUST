@@ -4,6 +4,7 @@
 #![no_main]
 
 mod init;
+mod utils;
 use core::arch::asm;
 
 /// Krust main function called by the Reset handler
@@ -14,6 +15,8 @@ pub fn main() -> ! {
             "LDR r0, =0xdeadc0de"
         );
     }
+
+    log_debug!("KRUST");
 
     loop {}
 }
