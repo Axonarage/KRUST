@@ -1,22 +1,13 @@
 use core::sync::atomic::{compiler_fence, Ordering};
-use cortex_m_semihosting::hprintln;
-
+use crate::log_debug;
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn DefaultHandler() -> ! {
-    hprintln!("Default Handler").ok();
+    log_debug!("Default Handler");
     loop {
         compiler_fence(Ordering::SeqCst);
     }
 }
-
-
-macro_rules! debug_log {
-    ($($arg:tt)*) => {
-        hprintln!("{}", format_args!($($arg)*)).ok();
-    };
-}
-
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn HardFaultHandler() -> ! {
@@ -50,18 +41,18 @@ pub unsafe extern "C" fn HardFaultHandler() -> ! {
     let vecttbl = (hfsr_value >> 1) & 1;
 
     if debug_vt == 1 {
-        debug_log!("Debug is used.");
+        log_debug!("Debug is used.");
     }
     if forced == 1 {
         // inspect other fault status registers
-        debug_log!("Forced hard fault. Need to inspect the other fault status registers.");
+        log_debug!("Forced hard fault. Need to inspect the other fault status registers.");
 
         unsafe {
             FaultHandler();
         }
     }
     if vecttbl == 1 {
-        debug_log!("Bus fault while trying to read the vector table.");
+        log_debug!("Bus fault while trying to read the vector table.");
         //asm!(
         //    "BKPT #0"
         //);
@@ -159,20 +150,20 @@ pub unsafe extern "C" fn UsageFaultHandler() -> ! {
     const UNDEFINSTR_BIT: u32 = 16;
 
     if (ufsr & ufsr_mask) != 0 {
-        debug_log!("Usage Fault.");
+        log_debug!("Usage Fault.");
         
         if (cfsr_value >> DIVBYZERO_BIT) & 1 == 1 {
-            debug_log!("Divide by zero usage fault.");
+            log_debug!("Divide by zero usage fault.");
         } else if (cfsr_value >> UNALIGNED_BIT) & 1 == 1 {
-            debug_log!("Unaligned access usage fault.");
+            log_debug!("Unaligned access usage fault.");
         } else if (cfsr_value >> NOCP_BIT) & 1 == 1 {
-            debug_log!("No coprocessor usage fault.");
+            log_debug!("No coprocessor usage fault.");
         } else if (cfsr_value >> INVPC_BIT) & 1 == 1 {
-            debug_log!("Invalid PC load usage fault, caused by an invalid PC load by EXC_RETURN.");
+            log_debug!("Invalid PC load usage fault, caused by an invalid PC load by EXC_RETURN.");
         } else if (cfsr_value >> INVSTATE_BIT) & 1 == 1 {
-            debug_log!("Invalid state usage fault.");
+            log_debug!("Invalid state usage fault.");
         } else if (cfsr_value >> UNDEFINSTR_BIT) & 1 == 1 {
-            debug_log!("Undefined instruction usage fault.");
+            log_debug!("Undefined instruction usage fault.");
         } 
     }
 
@@ -249,20 +240,20 @@ pub unsafe extern "C" fn BusFaultHandler() -> ! {
     const IBUERR_BIT: u32 = 8;
 
     if (bfsr & bfsr_mask) != 0 {
-        debug_log!("Bus Fault.");
+        log_debug!("Bus Fault.");
         
         if (cfsr_value >> LSPEERR_BIT) & 1 == 1 {
-            debug_log!("Bus fault on floating-point lazy state preservation.");
+            log_debug!("Bus fault on floating-point lazy state preservation.");
         } else if (cfsr_value >> STKERR_BIT) & 1 == 1 {
-            debug_log!("Bus fault on stacking for exception entry.");
+            log_debug!("Bus fault on stacking for exception entry.");
         } else if (cfsr_value >> UNSTKERR_BIT) & 1 == 1 {
-            debug_log!("Bus fault on unstacking for a return from exception.");
+            log_debug!("Bus fault on unstacking for a return from exception.");
         } else if (cfsr_value >> IMPRECISERR_BIT) & 1 == 1 {
-            debug_log!("Imprecise data bus error.");
+            log_debug!("Imprecise data bus error.");
         } else if (cfsr_value >> PRECISERR_BIT) & 1 == 1 {
-            debug_log!("Precise data bus error.");
+            log_debug!("Precise data bus error.");
         } else if (cfsr_value >> IBUERR_BIT) & 1 == 1 {
-            debug_log!("Instruction bus error.");
+            log_debug!("Instruction bus error.");
         } 
     }
 
@@ -271,7 +262,7 @@ pub unsafe extern "C" fn BusFaultHandler() -> ! {
         unsafe {
             bfar_value = GetFaultAddress(BFAR_ADDR);
         }
-        debug_log!("Fault at address {:#X}", bfar_value);
+        log_debug!("Fault at address {:#X}", bfar_value);
         // TO CHECK, PRINT LR/ EXC_RETURN value. (Seems to be but not referenced in the table exception return behavior)
         // OUTPUT : 
         //      Bus Fault.
@@ -348,18 +339,18 @@ pub unsafe extern "C" fn MemoryManagementFaultHandler() -> ! {
     const IACCVIOL_BIT: u32 = 0;
 
     if (mmfsr & mmfsr_mask) != 0 {
-        debug_log!("Memory Management Fault.");
+        log_debug!("Memory Management Fault.");
         
         if (cfsr_value >> MLSPEERR_BIT) & 1 == 1 {
-            debug_log!("MemManage fault occurred during floating-point lazy state preservation.");
+            log_debug!("MemManage fault occurred during floating-point lazy state preservation.");
         } else if (cfsr_value >> MSTKERR_BIT) & 1 == 1 {
-            debug_log!("Memory manager fault on stacking for exception entry.");
+            log_debug!("Memory manager fault on stacking for exception entry.");
         } else if (cfsr_value >> MUNSTKERR_BIT) & 1 == 1 {
-            debug_log!("Memory manager fault on unstacking for a return from exception.");
+            log_debug!("Memory manager fault on unstacking for a return from exception.");
         } else if (cfsr_value >> DACCVIOL_BIT) & 1 == 1 {
-            debug_log!("Data access violation flag.");
+            log_debug!("Data access violation flag.");
         } else if (cfsr_value >> IACCVIOL_BIT) & 1 == 1 {
-            debug_log!("Instruction access violation flag.");
+            log_debug!("Instruction access violation flag.");
         }
     }
 
@@ -368,7 +359,7 @@ pub unsafe extern "C" fn MemoryManagementFaultHandler() -> ! {
         unsafe {
             mmfar_value = GetFaultAddress(MMFAR_ADDR);
         }
-        debug_log!("Fault at address {:#X}", mmfar_value);
+        log_debug!("Fault at address {:#X}", mmfar_value);
     }
 
     loop {

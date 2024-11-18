@@ -4,8 +4,8 @@
 #![no_main]
 
 mod init;
+mod utils;
 use core::arch::asm;
-use cortex_m_semihosting::hprintln;
 
 /// Krust main function called by the Reset handler
 pub fn main() -> ! {
@@ -15,7 +15,7 @@ pub fn main() -> ! {
             "LDR r0, =0xdeadc0de"
         );
     }
-    hprintln!("Hello, world!").unwrap();
+    log_debug!("Hello, world!");
 
     unsafe {
         enable_system_handler_fault();
@@ -40,7 +40,7 @@ pub fn main() -> ! {
         // Attempt to access an unimplemented coprocessor
         trigger_lsperr();
 
-        hprintln!("This line will not be reached.").unwrap();
+        log_debug!("This line will not be reached.");
     }
 
     
