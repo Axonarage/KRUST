@@ -11,3 +11,4 @@
 /target/
 Cargo.lock
 /testing/target
+gdb_command.md

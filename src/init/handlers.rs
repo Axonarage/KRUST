@@ -4,8 +4,8 @@ use cortex_m_semihosting::hprintln;
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn DefaultHandler() -> ! {
+    hprintln!("Default Handler").ok();
     loop {
-        hprintln!("Handler").ok();
         compiler_fence(Ordering::SeqCst);
     }
 }
@@ -158,23 +158,22 @@ pub unsafe extern "C" fn UsageFaultHandler() -> ! {
     const INVSTATE_BIT: u32 = 17;
     const UNDEFINSTR_BIT: u32 = 16;
 
-    const USAGE_FAULT_MESSAGES: &[(&str, u32)] = &[
-        ("Divide by zero usage fault.", DIVBYZERO_BIT),
-        ("Unaligned access usage fault.", UNALIGNED_BIT),
-        ("No coprocessor usage fault.", NOCP_BIT),
-        ("Invalid PC load usage fault, caused by an invalid PC load by EXC_RETURN.", INVPC_BIT),
-        ("Invalid state usage fault.", INVSTATE_BIT),
-        ("Undefined instruction usage fault.", UNDEFINSTR_BIT),
-    ];
-
     if (ufsr & ufsr_mask) != 0 {
         debug_log!("Usage Fault.");
         
-        for (message, bit) in USAGE_FAULT_MESSAGES {
-            if (cfsr_value >> bit) & 1 == 1 {
-                debug_log!("{}", message);
-            }
-        }
+        if (cfsr_value >> DIVBYZERO_BIT) & 1 == 1 {
+            debug_log!("Divide by zero usage fault.");
+        } else if (cfsr_value >> UNALIGNED_BIT) & 1 == 1 {
+            debug_log!("Unaligned access usage fault.");
+        } else if (cfsr_value >> NOCP_BIT) & 1 == 1 {
+            debug_log!("No coprocessor usage fault.");
+        } else if (cfsr_value >> INVPC_BIT) & 1 == 1 {
+            debug_log!("Invalid PC load usage fault, caused by an invalid PC load by EXC_RETURN.");
+        } else if (cfsr_value >> INVSTATE_BIT) & 1 == 1 {
+            debug_log!("Invalid state usage fault.");
+        } else if (cfsr_value >> UNDEFINSTR_BIT) & 1 == 1 {
+            debug_log!("Undefined instruction usage fault.");
+        } 
     }
 
     loop {
@@ -249,23 +248,22 @@ pub unsafe extern "C" fn BusFaultHandler() -> ! {
     const PRECISERR_BIT: u32 = 9;
     const IBUERR_BIT: u32 = 8;
 
-    const BUS_FAULT_MESSAGES: &[(&str, u32)] = &[
-        ("Bus fault on floating-point lazy state preservation.", LSPEERR_BIT),
-        ("Bus fault on stacking for exception entry.", STKERR_BIT),
-        ("Bus fault on unstacking for a return from exception.", UNSTKERR_BIT),
-        ("Imprecise data bus error.", IMPRECISERR_BIT),
-        ("Precise data bus error.", PRECISERR_BIT),
-        ("Instruction bus error.", IBUERR_BIT),
-    ];
-
     if (bfsr & bfsr_mask) != 0 {
         debug_log!("Bus Fault.");
         
-        for (message, bit) in BUS_FAULT_MESSAGES {
-            if (cfsr_value >> bit) & 1 == 1 {
-                debug_log!("{}", message);
-            }
-        }
+        if (cfsr_value >> LSPEERR_BIT) & 1 == 1 {
+            debug_log!("Bus fault on floating-point lazy state preservation.");
+        } else if (cfsr_value >> STKERR_BIT) & 1 == 1 {
+            debug_log!("Bus fault on stacking for exception entry.");
+        } else if (cfsr_value >> UNSTKERR_BIT) & 1 == 1 {
+            debug_log!("Bus fault on unstacking for a return from exception.");
+        } else if (cfsr_value >> IMPRECISERR_BIT) & 1 == 1 {
+            debug_log!("Imprecise data bus error.");
+        } else if (cfsr_value >> PRECISERR_BIT) & 1 == 1 {
+            debug_log!("Precise data bus error.");
+        } else if (cfsr_value >> IBUERR_BIT) & 1 == 1 {
+            debug_log!("Instruction bus error.");
+        } 
     }
 
     // Bus Fault Address Register (BFAR) valid flag.
@@ -274,6 +272,11 @@ pub unsafe extern "C" fn BusFaultHandler() -> ! {
             bfar_value = GetFaultAddress(BFAR_ADDR);
         }
         debug_log!("Fault at address {:#X}", bfar_value);
+        // TO CHECK, PRINT LR/ EXC_RETURN value. (Seems to be but not referenced in the table exception return behavior)
+        // OUTPUT : 
+        //      Bus Fault.
+        //      Precise data bus error.
+        //      Fault at address 0xFFFFFFFC
     }
 
     loop {
@@ -344,21 +347,19 @@ pub unsafe extern "C" fn MemoryManagementFaultHandler() -> ! {
     const DACCVIOL_BIT: u32 = 1;
     const IACCVIOL_BIT: u32 = 0;
 
-    const MEMORY_FAULT_MESSAGES: &[(&str, u32)] = &[
-        ("MemManage fault occurred during floating-point lazy state preservation.", MLSPEERR_BIT),
-        ("Memory manager fault on stacking for exception entry.", MSTKERR_BIT),
-        ("Memory manager fault on unstacking for a return from exception.", MUNSTKERR_BIT),
-        ("Data access violation flag.", DACCVIOL_BIT),
-        ("Instruction access violation flag.", IACCVIOL_BIT),
-    ];
-
     if (mmfsr & mmfsr_mask) != 0 {
         debug_log!("Memory Management Fault.");
         
-        for (message, bit) in MEMORY_FAULT_MESSAGES {
-            if (cfsr_value >> bit) & 1 == 1 {
-                debug_log!("{}", message);
-            }
+        if (cfsr_value >> MLSPEERR_BIT) & 1 == 1 {
+            debug_log!("MemManage fault occurred during floating-point lazy state preservation.");
+        } else if (cfsr_value >> MSTKERR_BIT) & 1 == 1 {
+            debug_log!("Memory manager fault on stacking for exception entry.");
+        } else if (cfsr_value >> MUNSTKERR_BIT) & 1 == 1 {
+            debug_log!("Memory manager fault on unstacking for a return from exception.");
+        } else if (cfsr_value >> DACCVIOL_BIT) & 1 == 1 {
+            debug_log!("Data access violation flag.");
+        } else if (cfsr_value >> IACCVIOL_BIT) & 1 == 1 {
+            debug_log!("Instruction access violation flag.");
         }
     }
 
@@ -368,12 +369,6 @@ pub unsafe extern "C" fn MemoryManagementFaultHandler() -> ! {
             mmfar_value = GetFaultAddress(MMFAR_ADDR);
         }
         debug_log!("Fault at address {:#X}", mmfar_value);
-        // TO CHECK, PRINT LR/ EXC_RETURN value. (Seems to be but not referenced in the table exception return behavior)
-        // OUTPUT : 
-        //      Bus Fault.
-        //      Precise data bus error.
-        //      Fault at address 0xFFFFFFFC
-
     }
 
     loop {

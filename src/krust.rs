@@ -68,13 +68,13 @@ unsafe fn trigger_lsperr() {
 
 unsafe fn enable_system_handler_fault() {
     unsafe {
-        const CPACR_ADDR: u32 = 0xE000ED24; // Coprocessor Access Control Register
-        let mut cpacr_value: u32 = core::ptr::read_volatile(CPACR_ADDR as *const u32);
+        const SHCSR_ADDR: u32 = 0xE000ED24; // Coprocessor Access Control Register
+        let mut shcsr_value: u32 = core::ptr::read_volatile(SHCSR_ADDR as *const u32);
 
-        cpacr_value |= 1 << 18; // Set the USGFAULTENA bit
-        cpacr_value |= 1 << 17; // Set the BUSFAULTENA bit
-        cpacr_value |= 1 << 16; // Set the MEMFAULTENA bit
+        shcsr_value |= 1 << 18; // Set the USGFAULTENA bit
+        shcsr_value |= 1 << 17; // Set the BUSFAULTENA bit
+        shcsr_value |= 1 << 16; // Set the MEMFAULTENA bit
 
-        core::ptr::write_volatile(CPACR_ADDR as *mut u32, cpacr_value);
+        core::ptr::write_volatile(SHCSR_ADDR as *mut u32, shcsr_value);
     }
 }
