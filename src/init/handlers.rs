@@ -377,3 +377,9 @@ unsafe fn GetFaultAddress(ADDR: u32) -> u32 {
 
     addr_value
 }
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn SysTickHandler() {
+    log_debug!("SYSTICK Handler");
+    return ;
+}

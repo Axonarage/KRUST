@@ -48,6 +48,9 @@ mod panic;
 mod handlers;
 use crate::main;
 
+const SYST_CSR_ADDR: u32 = 0xE000E010;
+const SYST_RVR_ADDR: u32 = 0xE000E014;
+
 #[repr(C)]
 #[allow(non_snake_case)]
 pub struct ExceptionsHandlers {
@@ -64,7 +67,7 @@ pub struct ExceptionsHandlers {
     Reserved_12: u32,
     Reserved_13: u32,
     PendSV: unsafe extern "C" fn() -> !,
-    SysTick: unsafe extern "C" fn() -> !
+    SysTick: unsafe extern "C" fn()
 }
 
 /// Reset vector, part of the Vector table, points to our Reset handler : Reset()
@@ -89,12 +92,12 @@ pub static _EXCEPTIONS: ExceptionsHandlers = ExceptionsHandlers {
     Reserved_12: 0,
     Reserved_13: 0,
     PendSV: handlers::DefaultHandler,
-    SysTick: handlers::DefaultHandler
+    SysTick: handlers::SysTickHandler
 };
 
 
 /// Initialization of the .bss section by zeroing  out memory
-pub unsafe fn init_bss(start_bss: *mut u8, count: usize) {
+unsafe fn init_bss(start_bss: *mut u8, count: usize) {
     unsafe {
         ptr::write_bytes(start_bss, 0, count);
     }
@@ -102,13 +105,43 @@ pub unsafe fn init_bss(start_bss: *mut u8, count: usize) {
 }
 
 /// Initialization of the .data section by populating it with data from sidata
-pub unsafe fn init_data(start_data: *mut u8, sidata: *const u8, count: usize){
+unsafe fn init_data(start_data: *mut u8, sidata: *const u8, count: usize){
     unsafe {
         ptr::copy_nonoverlapping(sidata,start_data, count);
     }
     compiler_fence(Ordering::SeqCst);
 }
 
+/// Enable SysTick
+pub fn start_sys_tick() {
+    let syst_csr: u32;
+
+    unsafe {
+        //Set ENABLE in SysTick Control and Status Register
+        syst_csr = core::ptr::read_volatile(SYST_CSR_ADDR as *const u32);
+        core::ptr::write_volatile(SYST_CSR_ADDR as *mut u32, syst_csr | 0b1);
+    }
+}
+
+/// Initialization of SysTick : setup SYST_CSR and SYSTRVR
+fn init_sys_tick(mut reload_value: u32){
+    let mut syst_rvr: u32;
+    let syst_csr: u32;
+
+    // Sanitize reload_value
+    reload_value &= 0x00FF_FFFF;
+
+    unsafe {
+        //Set SysTick Reload Value Register
+        syst_rvr = core::ptr::read_volatile(SYST_RVR_ADDR as *const u32);
+        syst_rvr &= 0xFF00_0000; //Clear RELOAD field of SYST_RVR
+        core::ptr::write_volatile(SYST_RVR_ADDR as *mut u32, syst_rvr | reload_value);
+
+        //Set TICKINT in SysTick Control and Status Register to use SysTickHandler
+        syst_csr = core::ptr::read_volatile(SYST_CSR_ADDR as *const u32);
+        core::ptr::write_volatile(SYST_CSR_ADDR as *mut u32, syst_csr | 0b10);
+    }
+}
 
 /// Our Reset handler, wich initializes RAM and calls main
 #[unsafe(no_mangle)]
@@ -143,6 +176,8 @@ pub extern "C" fn Reset() -> ! {
     unsafe {
         init_data(start,&_sidata,end.offset_from(start) as usize);
     }
+
+    init_sys_tick(0x00FF_FFFF);
 
     // main() trampoline
     #[inline(never)]

@@ -15,11 +15,13 @@ pub fn main() -> ! {
             "LDR r0, =0xdeadc0de"
         );
     }
-    log_debug!("Hello, world!");
+    log_debug!("KRUST");
 
     unsafe {
         enable_system_handler_fault();
     }
+    
+    init::start_sys_tick();
     
     /*
     // Trigger HardFaultHandler with Undefined instruction usage fault.
@@ -33,15 +35,15 @@ pub fn main() -> ! {
         asm!("LDR R0, =0xFFFFFFFF"); // Load an invalid address
         asm!("BX R0"); // Branch to the invalid address
 
-        hprintln!("This line will not be reached due to INVPC fault.").unwrap();
+        log_debug!("This line will not be reached due to INVPC fault.");
     }
     */
-    unsafe {
-        // Attempt to access an unimplemented coprocessor
-        trigger_lsperr();
+    // unsafe {
+    //     // Attempt to access an unimplemented coprocessor
+    //     trigger_lsperr();
 
-        log_debug!("This line will not be reached.");
-    }
+    //     log_debug!("This line will not be reached.");
+    // }
 
     
     loop {}
