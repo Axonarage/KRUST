@@ -79,7 +79,7 @@ pub static RESET_VECTOR: unsafe extern "C" fn() -> ! = Reset;
 #[unsafe(link_section = ".vector_table.exceptions")]
 #[unsafe(no_mangle)]
 pub static _EXCEPTIONS: ExceptionsHandlers = ExceptionsHandlers {
-    NMI: handlers::DefaultHandler,
+    NMI: handlers::NMIHandler,
     HardFault: handlers::HardFaultHandler,
     MemManage: handlers::MemoryManagementFaultHandler,
     BusFault: handlers::BusFaultHandler,
@@ -88,7 +88,7 @@ pub static _EXCEPTIONS: ExceptionsHandlers = ExceptionsHandlers {
     Reserved_8: 0,
     Reserved_9: 0,
     Reserved_10: 0,
-    SVCall: handlers::DefaultHandler,
+    SVCall: handlers::SVCallHandler,
     Reserved_12: 0,
     Reserved_13: 0,
     PendSV: handlers::DefaultHandler,

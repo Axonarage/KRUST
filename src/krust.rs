@@ -49,6 +49,16 @@ pub fn main() -> ! {
     loop {}
 }
 
+
+#[inline(never)]
+unsafe fn trigger_nmi() {
+    const NVIC_ICSR: *mut u32 = 0xE000ED04 as *mut u32; // Address of ICSR
+    unsafe {
+        core::ptr::write_volatile(NVIC_ICSR, 1 << 31); // Set NMIPENDSET bit
+    }
+}
+
+
 #[inline(never)]
 unsafe fn trigger_nocp() {
     unsafe {

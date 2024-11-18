@@ -9,6 +9,16 @@ pub unsafe extern "C" fn DefaultHandler() -> ! {
     }
 }
 
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn NMIHandler() -> ! {
+    log_debug!("NMI Handler");
+    loop {
+        compiler_fence(Ordering::SeqCst);
+    }
+}
+
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn HardFaultHandler() -> ! {
 
@@ -47,9 +57,7 @@ pub unsafe extern "C" fn HardFaultHandler() -> ! {
         // inspect other fault status registers
         log_debug!("Forced hard fault. Need to inspect the other fault status registers.");
 
-        unsafe {
-            FaultHandler();
-        }
+        FaultHandler();
     }
     if vecttbl == 1 {
         log_debug!("Bus fault while trying to read the vector table.");
@@ -66,7 +74,7 @@ pub unsafe extern "C" fn HardFaultHandler() -> ! {
 
 
 #[allow(non_snake_case)]
-unsafe fn FaultHandler() -> ! {
+fn FaultHandler() -> ! {
     const CFSR_ADDR: u32 = 0xE000ED28;
     let cfsr_value: u32;
 
@@ -259,9 +267,7 @@ pub unsafe extern "C" fn BusFaultHandler() -> ! {
 
     // Bus Fault Address Register (BFAR) valid flag.
     if (cfsr_value >> BFARVALID_BIT) & 1 == 1 {
-        unsafe {
-            bfar_value = GetFaultAddress(BFAR_ADDR);
-        }
+        bfar_value = GetFaultAddress(BFAR_ADDR);
         log_debug!("Fault at address {:#X}", bfar_value);
         // TO CHECK, PRINT LR/ EXC_RETURN value. (Seems to be but not referenced in the table exception return behavior)
         // OUTPUT : 
@@ -356,9 +362,7 @@ pub unsafe extern "C" fn MemoryManagementFaultHandler() -> ! {
 
     // Memory Management Fault Address Register (MMAR) valid flag.
     if (cfsr_value >> MMARVALID_BIT) & 1 == 1 {
-        unsafe {
-            mmfar_value = GetFaultAddress(MMFAR_ADDR);
-        }
+        mmfar_value = GetFaultAddress(MMFAR_ADDR);
         log_debug!("Fault at address {:#X}", mmfar_value);
     }
 
@@ -367,8 +371,9 @@ pub unsafe extern "C" fn MemoryManagementFaultHandler() -> ! {
     }
 }
 
+
 #[allow(non_snake_case)]
-unsafe fn GetFaultAddress(ADDR: u32) -> u32 {
+fn GetFaultAddress(ADDR: u32) -> u32 {
     let addr_value: u32;
 
     unsafe {
@@ -378,8 +383,21 @@ unsafe fn GetFaultAddress(ADDR: u32) -> u32 {
     addr_value
 }
 
+
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn SysTickHandler() {
     log_debug!("SYSTICK Handler");
     return ;
 }
+
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn SVCallHandler() -> ! {
+    log_debug!("SVCAll Handler");
+
+    // Redirect with syscall
+    loop {
+        compiler_fence(Ordering::SeqCst);
+    }
+}
+
