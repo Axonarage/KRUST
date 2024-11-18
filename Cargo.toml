@@ -16,3 +16,6 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
+cortex-m-semihosting = "0.3.3"
+cortex-m = "0.7"           # Cortex-M specific functionality
+

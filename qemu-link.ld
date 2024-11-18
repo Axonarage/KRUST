@@ -1,8 +1,13 @@
 /* Memory layout of the STM32F405RGT6 microcontroller */
 MEMORY
 {
-  FLASH : ORIGIN = 0x08000000, LENGTH = 1024K
-  RAM : ORIGIN = 0x20000000, LENGTH = 192K
+  FLASH : ORIGIN    = 0x08000000, LENGTH = 1024K
+
+  /* .bss, .data and the heap go in this region */
+  RAM : ORIGIN      = 0x20000000, LENGTH = 128K
+  
+  /* Core coupled (faster) RAM dedicated to hold the stack */
+  CCRAM : ORIGIN    = 0x20020000, LENGTH = 64K
 }
 
 ENTRY(Reset);
@@ -11,7 +16,7 @@ EXTERN(_EXCEPTIONS);
 
 SECTIONS
 {
-  PROVIDE(_sstack = ORIGIN(RAM) + LENGTH(RAM));
+  PROVIDE(_sstack = ORIGIN(CCRAM) + LENGTH(CCRAM));
 
   .vector_table ORIGIN(FLASH) :
   {
