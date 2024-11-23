@@ -1,3 +1,5 @@
 #!/bin/bash
 
-qemu-system-arm -cpu cortex-m4 -machine netduinoplus2 -nographic -semihosting-config enable=on,target=native -d in_asm,cpu,exec,int -kernel target/thumbv7em-none-eabihf/debug/krust -S -gdb tcp::3333
+qemu-system-arm -cpu cortex-m4 -machine netduinoplus2 -display none -semihosting-config enable=on,target=native -kernel target/thumbv7em-none-eabihf/debug/krust -S -gdb tcp::3333
+
+#qemu-system-arm -cpu cortex-m4 -machine netduinoplus2 -display none -semihosting-config enable=on,target=native  -d in_asm,cpu,exec,int -kernel target/thumbv7em-none-eabihf/debug/krust -S -gdb tcp::3333
