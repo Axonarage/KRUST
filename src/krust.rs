@@ -42,10 +42,8 @@ pub fn main() -> ! {
     //     // Attempt to access an unimplemented coprocessor
     //     trigger_lsperr();
 
-    //     log_debug!("This line will not be reached.");
-    // }
+    log_debug!("KRUST");
 
-    
     loop {}
 }
 
