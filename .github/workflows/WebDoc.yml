@@ -6,38 +6,6 @@ on:
       - main
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out the repository
-        uses: actions/checkout@v2
-
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-
-      - name: Add target
-        run: rustup target add thumbv7em-none-eabihf
-
-      - name: Add toolchain for compiling core
-        run: rustup component add rust-src --toolchain nightly-x86_64-unknown-linux-gnu
-
-      - name: Build core
-        run: cargo +nightly build -Zbuild-std
-
-      - name: Build documentation
-        run: cargo +nightly doc --no-deps --target-dir Documentation
-     
-      - name: Generate index.html file
-        run: |
-            echo "<meta http-equiv=refresh content=0;url=wasm_oidc_plugin/index.html>" > target/doc/index.html
-      - name: Upload documentation
-        uses: actions/upload-pages-artifact@v1
-        with:
-            path: ./target/doc
-
   deploy:
         needs: build
         runs-on: ubuntu-latest

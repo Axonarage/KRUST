@@ -1,0 +1,1 @@
+{"rustc":6178873505963896773,"features":"","declared_features":"","target":0,"profile":0,"path":0,"deps":[[11354050516895600027,"build_script_build",false,6859882694617840529],[10334094352900739774,"build_script_build",false,14614763768796070312]],"local":[{"Precalculated":"0.3.7"}],"rustflags":["-C","link-arg=-Tqemu-link.ld"],"metadata":0,"config":0,"compile_kind":0}
