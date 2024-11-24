@@ -12,25 +12,78 @@ use memory_management::paging;
 use memory_management::memory_layout;
 use core::arch::asm;
 
+// Inclure le module de l'allocateur
+use memory_management::heap;
+
 /// Krust main function called by the Reset handler
 pub fn main() -> ! {
     
-    unsafe {
-        
-        asm!(
-            "LDR r0, =0xdeadc0de"
-        );
-        mpu::initialize_mpu();
-        memory_management::paging::map_page(0x3000_0000, 0x1000, 0b111);
-        log_debug!("coucou");
-    }
-    log_debug!("KRUST");
-
     unsafe {
         enable_system_handler_fault();
     }
     
     init::start_sys_tick();
+
+    unsafe {
+        
+        asm!(
+            "LDR r0, =0xdeadc0de"
+        );
+   // Initialisation du tas avec l'espace mémoire
+   unsafe {
+    heap::initialize_heap();
+   }
+
+// Test de l'allocation
+unsafe {
+    // Allouer un bloc de mémoire de 32 octets
+    let ptr1 = heap::pv_port_malloc(32);
+    if ptr1.is_null() {
+        // Échec de l'allocation
+        log_debug!("Allocation de 32 octets échouée");
+    } else {
+        log_debug!("Allocation réussie : adresse {:?}", ptr1);
+    }
+    *ptr1 = 0x13;
+    // Allouer un autre bloc de 64 octets
+    let ptr2 = heap::pv_port_malloc(64);
+    if ptr2.is_null() {
+        log_debug!("Allocation de 64 octets échouée");
+    } else {
+        log_debug!("Allocation réussie : adresse {:?}", ptr2);
+    }
+    *ptr2 = 0x37;
+
+    // Libération de la première allocation
+    heap::v_port_free(ptr1);
+    log_debug!("Mémoire libérée pour le premier bloc");
+
+    // Réallocation pour vérifier le recyclage de la mémoire
+    let ptr3 = heap::pv_port_malloc(16);
+    if ptr3.is_null() {
+        log_debug!("Réallocation de 16 octets échouée");
+    } else {
+        log_debug!("Réallocation réussie : adresse {:?}", ptr3);
+    }
+}
+
+
+
+
+
+
+
+
+
+        //mpu::initialize_mpu();
+        //memory_management::paging::map_page(0x2000_0000, 0x1000, 0b001,0x0);
+        //memory_management::paging::map_page(0x08000000, 0x2000, 0b000,0x1);
+        /*let ptr = 0x2000_0010 as *mut u32;
+        *ptr = 42;*/
+    }
+    //log_debug!("KRUST");
+
+    
     
     /*
     // Trigger HardFaultHandler with Undefined instruction usage fault.

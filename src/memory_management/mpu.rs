@@ -24,7 +24,7 @@ pub unsafe fn initialize_mpu() {
         MpuRegion {
             base_address: memory_layout::REGION_FLASH_ADDR,
             size: memory_layout::REGION_FLASH_LEN,
-            attributes: memory_layout::ATTR_READ_EXEC,
+            attributes: memory_layout::ATTR_NORMALMEMORY_NONSHAREABLE_WRITHROUGH,
         },
     );
 
@@ -35,7 +35,7 @@ pub unsafe fn initialize_mpu() {
         MpuRegion {
             base_address: memory_layout::REGION_RAM_ADDR,
             size: memory_layout::REGION_RAM_LEN,
-            attributes: memory_layout::ATTR_READ_WRITE,
+            attributes: memory_layout::ATTR_NORMALMEMORY_SHAREABLE_WRITEBACK_WRITEALLOCATE,
         },
     );
     
@@ -46,7 +46,8 @@ pub unsafe fn initialize_mpu() {
         MpuRegion {
             base_address: memory_layout::REGION_CCRAM_ADDR,
             size: memory_layout::REGION_CCRAM_LEN,
-            attributes: memory_layout::ATTR_READ_WRITE,
+            attributes: memory_layout::ATTR_NORMALMEMORY_SHAREABLE_WRITEBACK_WRITEALLOCATE,
+            //attributes: memory_layout::ATTR_READ_WRITE,
         },
     );
     enable_mpu(&mut mpu);
