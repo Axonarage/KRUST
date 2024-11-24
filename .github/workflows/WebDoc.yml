@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,13 +19,41 @@ jobs:
           toolchain: nightly
 
       - name: Build documentation
-        run: cargo +nightly doc --no-deps --target-dir Documentation
+        uses: actions-rs/cargo@v1
+        with:
+            command: doc
+            args: --target-dir Documentation
+
+      - name: Fix file permissions
+        shell: sh
+        run: |
+            chmod -c -R +rX "target/doc" |
+            while read line; do
+                echo "::warning title=Invalid file permissions automatically fixed::$line"
+            done
+      - name: Generate index.html file
+        run: |
+            echo "<meta http-equiv=refresh content=0;url=wasm_oidc_plugin/index.html>" > target/doc/index.html
+      - name: Upload documentation
+        uses: actions/upload-pages-artifact@v1
+        with:
+            path: ./target/doc
 
       - name: Add .nojekyll file
         run: touch Documentation/.nojekyll
 
-      - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./Documentation
+  deploy:
+        needs: build
+        runs-on: ubuntu-latest
+
+        permissions:
+            pages: write
+            id-token: write
+        environment:
+            name: github-pages
+            url: ${{ steps.pages.outputs.page_url }}
+
+        steps:
+          - name: Deploy documentation
+            id: pages
+            uses: actions/deploy-pages@v2
