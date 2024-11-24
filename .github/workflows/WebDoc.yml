@@ -21,6 +21,9 @@ jobs:
       - name: Add target
         run: rustup target add thumbv7em-none-eabihf
 
+      - name: Build core
+        run: cargo build -Zbuild-std
+
       - name: Build documentation
         run: cargo +nightly doc --no-deps --target-dir Documentation
      
