@@ -1,0 +1,6 @@
+#!/bin/bash
+
+cargo doc --no-deps
+cp -r target/thumbv7em-none-eabihf/doc/ docs/
+echo -n '<head><meta http-equiv="refresh" content="0; url=krust/index.html" /></head>' > docs/index.html
+rm docs/.lock
