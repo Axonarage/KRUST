@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["SYST_CSR_ADDR","SYST_RVR_ADDR"],"fn":["Reset","init_bss","init_data","init_sys_tick","start_sys_tick"],"mod":["handlers","panic"],"static":["RESET_VECTOR","_EXCEPTIONS"],"struct":["ExceptionsHandlers"]};
+window.SIDEBAR_ITEMS = {"fn":["Reset","enable_system_handler_fault","init_bss","init_data"],"mod":["handlers","panic","systick"],"static":["RESET_VECTOR","_EXCEPTIONS"],"struct":["ExceptionsHandlers"]};
