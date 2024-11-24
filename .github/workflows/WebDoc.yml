@@ -21,4 +21,4 @@ jobs:
             id: pages
             uses: actions/upload-pages-artifact@v2
             with:
-              path: "target/thumbv7em-none-eabihf/doc"
+              path: "doc/"
