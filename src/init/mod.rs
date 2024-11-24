@@ -96,6 +96,18 @@ pub static _EXCEPTIONS: ExceptionsHandlers = ExceptionsHandlers {
     SysTick: handlers::SysTickHandler
 };
 
+pub unsafe fn enable_system_handler_fault() {
+    unsafe {
+        const SHCSR_ADDR: u32 = 0xE000ED24; // Coprocessor Access Control Register
+        let mut shcsr_value: u32 = core::ptr::read_volatile(SHCSR_ADDR as *const u32);
+
+        shcsr_value |= 1 << 18; // Set the USGFAULTENA bit
+        shcsr_value |= 1 << 17; // Set the BUSFAULTENA bit
+        shcsr_value |= 1 << 16; // Set the MEMFAULTENA bit
+
+        core::ptr::write_volatile(SHCSR_ADDR as *mut u32, shcsr_value);
+    }
+}
 
 /// Initialization of the .bss section by zeroing  out memory
 unsafe fn init_bss(start_bss: *mut u8, count: usize) {
