@@ -29,3 +29,6 @@ La target qemu utilisée pour les test sur Cortex-M4 est la netduinoplus2 (micro
 apt install gdb-multiarch
 ln -s /usr/bin/gdb-multiarch /usr/bin/arm-none-eabi-gdb
 ``` 
+## Version qemu
+
+`qemu-system-arm` : version 7.2.13
