@@ -9,6 +9,8 @@ ENTRY(Reset);
 EXTERN(RESET_VECTOR);
 EXTERN(_EXCEPTIONS);
 
+HEAP_SIZE = 0x20000;
+
 SECTIONS
 {
   PROVIDE(_sstack = ORIGIN(RAM) + LENGTH(RAM));
@@ -57,14 +59,17 @@ SECTIONS
     _edata = .;
   } > RAM
 
-  .ram_heap (NOLOAD) :
-  {
-      _ram_heap_start = .;
-      *(.ram_heap)
-      _ram_heap_end = .;
-  } > RAM
-
   _sidata = LOADADDR(.data);
+
+  /* Heap region, 0x10000 bytes */
+  .ram_heap (NOLOAD) : 
+  {
+    . = ALIGN(4);
+    _ram_heap_start = .;
+    . = . + HEAP_SIZE; /* Reserve 0x10000 bytes */
+    . = ALIGN(4);
+    _ram_heap_end = .;
+  } > RAM
 
   /DISCARD/ :
   {
