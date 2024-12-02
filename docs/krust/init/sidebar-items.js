@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["Reset","enable_system_handler_fault","init_bss","init_data"],"mod":["handlers","panic","systick"],"static":["RESET_VECTOR","_EXCEPTIONS"],"struct":["ExceptionsHandlers"]};
