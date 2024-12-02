@@ -1,25 +1,6 @@
 use core::arch::asm;
-
-#[test_case]
-#[inline(never)]
-fn trigger_nocp() {
-    unsafe {
-        asm!(
-            "MRC p15, 0, r0, c15, c0, 0", // Access a system control register via coprocessor
-            options(nostack)
-        );
-    }
-}
-
-#[test_case]
-#[inline(never)]
-fn init_heap(){
-    // Initialisation du tas avec l'espace mémoire
-    unsafe {
-        heap::initialize_heap();
-    }
-}
-
+use crate::memory_management::heap;
+use crate::log_debug;
 
 #[test_case]
 #[inline(never)]
@@ -69,7 +50,7 @@ fn free_heap(){
         if ptr2.is_null() {
             log_debug!("Réallocation de 16 octets échouée");
         } else {
-            log_debug!("Réallocation réussie : adresse {:?}", ptr3);
+            log_debug!("Réallocation réussie : adresse {:?}", ptr2);
         }
     }
 }
