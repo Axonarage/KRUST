@@ -167,26 +167,7 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
-<a href="#173" id="173">173</a>
-<a href="#174" id="174">174</a>
-<a href="#175" id="175">175</a>
-<a href="#176" id="176">176</a>
-<a href="#177" id="177">177</a>
-<a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a>
-<a href="#180" id="180">180</a>
-<a href="#181" id="181">181</a>
-<a href="#182" id="182">182</a>
-<a href="#183" id="183">183</a>
-<a href="#184" id="184">184</a>
-<a href="#185" id="185">185</a>
-<a href="#186" id="186">186</a>
-<a href="#187" id="187">187</a>
-<a href="#188" id="188">188</a></pre></div><pre class="rust"><code><span class="doccomment">//! Initialization of Cortex-M device
+<a href="#169" id="169">169</a></pre></div><pre class="rust"><code><span class="doccomment">//! Initialization of Cortex-M device
 //! 
 //! Cortex-M devices are using a vector table for initialization.
 //! It is located at the start of the code region in memory.
@@ -234,10 +215,10 @@
 
 <span class="kw">mod </span>panic;
 <span class="kw">mod </span>handlers;
+<span class="kw">mod </span>systick;
+<span class="kw">pub use </span><span class="kw">crate</span>::init::systick::start_sys_tick;
 <span class="kw">use </span><span class="kw">crate</span>::main;
 
-<span class="kw">const </span>SYST_CSR_ADDR: u32 = <span class="number">0xE000E010</span>;
-<span class="kw">const </span>SYST_RVR_ADDR: u32 = <span class="number">0xE000E014</span>;
 
 <span class="attr">#[repr(C)]
 #[allow(non_snake_case)]
@@ -283,6 +264,18 @@
     SysTick: handlers::SysTickHandler
 };
 
+<span class="kw">pub unsafe fn </span>enable_system_handler_fault() {
+    <span class="kw">unsafe </span>{
+        <span class="kw">const </span>SHCSR_ADDR: u32 = <span class="number">0xE000ED24</span>; <span class="comment">// Coprocessor Access Control Register
+        </span><span class="kw">let </span><span class="kw-2">mut </span>shcsr_value: u32 = core::ptr::read_volatile(SHCSR_ADDR <span class="kw">as </span><span class="kw-2">*const </span>u32);
+
+        shcsr_value |= <span class="number">1 </span>&lt;&lt; <span class="number">18</span>; <span class="comment">// Set the USGFAULTENA bit
+        </span>shcsr_value |= <span class="number">1 </span>&lt;&lt; <span class="number">17</span>; <span class="comment">// Set the BUSFAULTENA bit
+        </span>shcsr_value |= <span class="number">1 </span>&lt;&lt; <span class="number">16</span>; <span class="comment">// Set the MEMFAULTENA bit
+
+        </span>core::ptr::write_volatile(SHCSR_ADDR <span class="kw">as </span><span class="kw-2">*mut </span>u32, shcsr_value);
+    }
+}
 
 <span class="doccomment">/// Initialization of the .bss section by zeroing  out memory
 </span><span class="kw">unsafe fn </span>init_bss(start_bss: <span class="kw-2">*mut </span>u8, count: usize) {
@@ -298,37 +291,6 @@
         ptr::copy_nonoverlapping(sidata,start_data, count);
     }
     compiler_fence(Ordering::SeqCst);
-}
-
-<span class="doccomment">/// Enable SysTick
-</span><span class="kw">pub fn </span>start_sys_tick() {
-    <span class="kw">let </span>syst_csr: u32;
-
-    <span class="kw">unsafe </span>{
-        <span class="comment">//Set ENABLE in SysTick Control and Status Register
-        </span>syst_csr = core::ptr::read_volatile(SYST_CSR_ADDR <span class="kw">as </span><span class="kw-2">*const </span>u32);
-        core::ptr::write_volatile(SYST_CSR_ADDR <span class="kw">as </span><span class="kw-2">*mut </span>u32, syst_csr | <span class="number">0b1</span>);
-    }
-}
-
-<span class="doccomment">/// Initialization of SysTick : setup SYST_CSR and SYSTRVR
-</span><span class="kw">fn </span>init_sys_tick(<span class="kw-2">mut </span>reload_value: u32){
-    <span class="kw">let </span><span class="kw-2">mut </span>syst_rvr: u32;
-    <span class="kw">let </span>syst_csr: u32;
-
-    <span class="comment">// Sanitize reload_value
-    </span>reload_value &amp;= <span class="number">0x00FF_FFFF</span>;
-
-    <span class="kw">unsafe </span>{
-        <span class="comment">//Set SysTick Reload Value Register
-        </span>syst_rvr = core::ptr::read_volatile(SYST_RVR_ADDR <span class="kw">as </span><span class="kw-2">*const </span>u32);
-        syst_rvr &amp;= <span class="number">0xFF00_0000</span>; <span class="comment">//Clear RELOAD field of SYST_RVR
-        </span>core::ptr::write_volatile(SYST_RVR_ADDR <span class="kw">as </span><span class="kw-2">*mut </span>u32, syst_rvr | reload_value);
-
-        <span class="comment">//Set TICKINT in SysTick Control and Status Register to use SysTickHandler
-        </span>syst_csr = core::ptr::read_volatile(SYST_CSR_ADDR <span class="kw">as </span><span class="kw-2">*const </span>u32);
-        core::ptr::write_volatile(SYST_CSR_ADDR <span class="kw">as </span><span class="kw-2">*mut </span>u32, syst_csr | <span class="number">0b10</span>);
-    }
 }
 
 <span class="doccomment">/// Our Reset handler, wich initializes RAM and calls main
@@ -365,7 +327,7 @@
         init_data(start,<span class="kw-2">&amp;</span>_sidata,end.offset_from(start) <span class="kw">as </span>usize);
     }
 
-    init_sys_tick(<span class="number">0x00FF_FFFF</span>);
+    systick::init_sys_tick(<span class="number">0x00FF_FFFF</span>);
 
     <span class="comment">// main() trampoline
     </span><span class="attr">#[inline(never)]

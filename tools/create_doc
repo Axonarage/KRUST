@@ -1,6 +1,8 @@
 #!/bin/bash
 
+[ -e "docs" ] && rm -r docs
+[ -e "target/thumbv7em-none-eabihf/doc" ] && rm -r target/thumbv7em-none-eabihf/doc
 cargo doc --no-deps
-cp -r target/thumbv7em-none-eabihf/doc/ docs/
+cp -rT target/thumbv7em-none-eabihf/doc/ docs/
 echo -n '<head><meta http-equiv="refresh" content="0; url=krust/index.html" /></head>' > docs/index.html
-rm docs/.lock
+[ -e "docs/.lock" ] && rm docs/.lock

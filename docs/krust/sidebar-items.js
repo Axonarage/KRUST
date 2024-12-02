@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["enable_system_handler_fault","main","trigger_lsperr","trigger_nmi","trigger_nocp"],"macro":["log_debug"],"mod":["init","utils"]};
+window.SIDEBAR_ITEMS = {"fn":["main"],"macro":["log_debug"],"mod":["init","test","utils"]};
