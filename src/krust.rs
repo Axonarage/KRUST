@@ -10,14 +10,16 @@
 mod init;
 mod utils;
 mod test;
+mod memory_management;
 
 /// Krust main function called by the Reset handler
 pub fn main() -> ! {
     
     log_debug!("KRUST");
-
+    
     unsafe {
         init::enable_system_handler_fault();
+        memory_management::heap::initialize_heap();
     }
     
     #[cfg(test)]
