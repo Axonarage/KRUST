@@ -10,6 +10,7 @@
 mod init;
 mod utils;
 mod test;
+mod proc;
 
 /// Krust main function called by the Reset handler
 pub fn main() -> ! {

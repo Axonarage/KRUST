@@ -1,3 +1,6 @@
+mod linked_list;
+pub use linked_list::LinkedList; 
+
 pub mod macros {
     #![macro_use]
 
