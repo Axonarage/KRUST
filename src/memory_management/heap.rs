@@ -3,11 +3,13 @@
 use core::mem::{align_of, size_of};
 use core::ptr;
 
-const HEAP_SIZE: usize = 1024; // Taille totale du heap
+const HEAP_SIZE: usize = 0x10000; // Taille totale de la heap (RAM/2)
 const ALIGNMENT: usize = align_of::<usize>();
 const ALIGNMENT_MASK: usize = !(ALIGNMENT - 1);
 
+#[unsafe(link_section = ".ram_heap")]
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
+
 static mut HEAP_INIT: bool = false;
 
 #[derive(Debug)]
