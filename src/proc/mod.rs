@@ -28,6 +28,18 @@ impl SystemProcess {
         let new_proc = Process::new(name, self.get_new_proc_id(), self.get_new_proc_state());
         self.process_list.add(new_proc);
     }
+
+    pub fn kill_process(&mut self, proc_id: u16) {
+
+        for process in self.process_list.iter() {
+            if process.proc_id == proc_id {
+                //process.status = ProcStatus::Finished;
+
+                self.process_list.delete(process);
+                break;
+            }
+        }
+    }
 }
 
 #[derive(Default,PartialEq)]

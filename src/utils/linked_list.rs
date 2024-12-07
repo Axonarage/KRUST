@@ -71,5 +71,33 @@ impl<T: PartialEq> LinkedList<T> {
         }
         return false;
     }
+
+
+    pub fn iter(&mut self) -> LinkedListIter<T> {
+        LinkedListIter {
+            current: self.head,
+        }
+    }
 }
 
+pub struct LinkedListIter<T> {
+    current: *mut Node<T>,
+}
+
+impl<T> Iterator for LinkedListIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current.is_null() {
+            None
+        } else {
+            unsafe {
+                // Temporarily hold current node's data
+                let data = ptr::read(&(*self.current).data);
+                // Move to the next node
+                self.current = (*self.current).next;
+                Some(data)
+            }
+        }
+    }
+}
