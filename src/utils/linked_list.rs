@@ -21,7 +21,7 @@ pub struct LinkedList<T> {
 }
 
 impl<T: PartialEq> LinkedList<T> {
-    fn new() -> LinkedList<T> {
+    pub fn new() -> LinkedList<T> {
         LinkedList {
             head: ptr::null_mut(),
             tail: ptr::null_mut(),
@@ -78,6 +78,13 @@ impl<T: PartialEq> LinkedList<T> {
             current: self.head,
         }
     }
+
+    pub fn iter_mut<'a>(&'a mut self) -> LinkedListIterMut<'a, T> {
+        LinkedListIterMut {
+            current: self.head,
+            _marker: core::marker::PhantomData,
+        }
+    }
 }
 
 pub struct LinkedListIter<T> {
@@ -101,3 +108,28 @@ impl<T> Iterator for LinkedListIter<T> {
         }
     }
 }
+
+pub struct LinkedListIterMut<'a, T> {
+    current: *mut Node<T>,
+    _marker: core::marker::PhantomData<&'a mut T>, // Marker to tie lifetime to 'a
+}
+
+
+impl<'a, T> Iterator for LinkedListIterMut<'a, T> {
+    type Item = &'a mut T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current.is_null() {
+            None
+        } else {
+            unsafe {
+                // Get mutable reference to the current node's data
+                let data = &mut (*self.current).data;
+                // Move to the next node
+                self.current = (*self.current).next;
+                Some(data)
+            }
+        }
+    }
+}
+

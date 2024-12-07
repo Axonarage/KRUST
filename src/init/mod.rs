@@ -49,7 +49,7 @@ mod handlers;
 mod systick;
 pub use crate::init::systick::start_sys_tick;
 use crate::main;
-
+pub use crate::init::handlers::{trigger_pendsv,CURRENT_PROCESS_STATE, NEXT_PROCESS_STATE};
 
 #[repr(C)]
 #[allow(non_snake_case)]

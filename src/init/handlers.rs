@@ -1,5 +1,6 @@
 use core::sync::atomic::{compiler_fence, Ordering};
 use crate::log_debug;
+use core::arch::asm;
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn DefaultHandler() -> ! {
@@ -401,3 +402,40 @@ pub unsafe extern "C" fn SVCallHandler() -> ! {
     }
 }
 
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PendSV_Handler() {
+    unsafe{
+        asm!(
+            "
+            // Save the current process state
+            mrs r0, psp             // Get the process stack pointer
+            stmdb r0!, {{r4-r11}}   // Store callee-saved registers on process stack
+            ldr r1, =CURRENT_PROCESS_STATE
+            str r0, [r1]            // Save PSP to current process state
+    
+            // Load the next process state
+            ldr r2, =NEXT_PROCESS_STATE
+            ldr r0, [r2]            // Load PSP of next process
+            ldmia r0!, {{r4-r11}}   // Restore callee-saved registers
+            msr psp, r0             // Update process stack pointer
+    
+            // Return from exception
+            bx lr
+            ",
+            options(noreturn)
+        );
+    }
+}
+
+// Pointers to the current and next process state (dummy implementation for now)
+#[unsafe(no_mangle)]
+pub static mut CURRENT_PROCESS_STATE: usize = 0;
+#[unsafe(no_mangle)]
+pub static mut NEXT_PROCESS_STATE: usize = 0;
+
+pub fn trigger_pendsv() {
+    unsafe {
+        asm!("svc 0"); // Trigger the PendSV exception
+    }
+}
