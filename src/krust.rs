@@ -7,6 +7,8 @@
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = "test_runner"]
 
+extern crate alloc;
+
 mod init;
 mod utils;
 mod test;
@@ -21,7 +23,10 @@ pub fn main() -> ! {
         init::enable_system_handler_fault();
         memory_management::heap::initialize_heap();
     }
-    
+
+    let vec = alloc::vec![1, 2, 3, 4];
+    log_debug!("{:?}", vec);
+
     #[cfg(test)]
     test_runner();
 
