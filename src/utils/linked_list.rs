@@ -56,8 +56,8 @@ impl<T: PartialEq> LinkedList<T> {
                         mem::drop(node);
                     } else if self.tail == node {
                         mem::drop(self.tail);
-                        self.tail = node;
-                        (*node).next = ptr::null_mut();
+                        self.tail = prev;
+                        (*prev).next = ptr::null_mut();
                     } else {
                         (*prev).next = (*node).next;
                         mem::drop(node);
