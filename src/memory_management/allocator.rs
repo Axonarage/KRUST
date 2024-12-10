@@ -5,11 +5,15 @@ pub struct SimpleAllocator;
 
 unsafe impl GlobalAlloc for SimpleAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        heap::allocate(layout.size())
+        unsafe {
+            heap::allocate(layout.size())
+        }
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        heap::deallocate(ptr);
+    unsafe fn dealloc(&self, ptr: *mut u8, _layout: Layout) {
+        unsafe {
+            heap::deallocate(ptr);
+        }
     }
 }
 

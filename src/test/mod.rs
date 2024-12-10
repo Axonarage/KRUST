@@ -1,3 +1,4 @@
+#![allow(unused_imports)]
 use crate::log_debug;
 mod scheduler;
 //mod exception_test;
