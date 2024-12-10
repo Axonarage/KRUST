@@ -25,6 +25,7 @@ pub fn main() -> ! {
     
     unsafe {
         init::enable_system_handler_fault();
+        init::setup_priority_handler();
         memory_management::heap::initialize_heap();
     }
 
