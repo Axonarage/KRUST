@@ -1,5 +1,6 @@
 use core::mem::{align_of, size_of};
 use core::ptr;
+use crate::check_cookie;
 
 const HEAP_SIZE: usize = 0x10000; // Taille totale de la heap (RAM/2)
 const ALIGNMENT: usize = align_of::<usize>();
@@ -140,9 +141,7 @@ pub unsafe fn deallocate(ptr: *mut u8) {
     let block_to_free = (ptr as usize - BLOCK_HEADER_SIZE) as *mut BlockLink;
 
     // Check cookies using the new function
-    if !check_cookie(ptr) {
-        panic!("Heap corruption detected!");
-    }
+    check_cookie!(ptr);
 
     // Add the block to the list of free blocks
     let mut previous_block = &raw const START as *mut _;

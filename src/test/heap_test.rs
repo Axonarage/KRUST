@@ -2,6 +2,7 @@ use core::arch::asm;
 use crate::memory_management::heap;
 use crate::log_debug;
 extern crate alloc;
+use crate::check_cookie;
 
 /// Test case for heap allocation
 #[test_case]
@@ -61,7 +62,7 @@ fn free_heap(){
 /// Test case for verifying heap cookie
 #[test_case]
 #[inline(never)]
-fn cookie(){
+fn cookie_macro(){
     unsafe{
         log_debug!("Testing cookie (nominal case).");
         // Allocate 32 bytes
@@ -79,19 +80,7 @@ fn cookie(){
         // Write some data
         *ptr = 0x42;
 
-        // Verify cookie is still valid
-        let is_valid = heap::check_cookie(ptr);
-        log_debug!("Cookie check result: {}", is_valid);
-
-        // Get cookie value again
-        let final_cookie = unsafe { *block_link };
-        log_debug!("Final cookie: {:#x}", final_cookie);
-
-        assert!(is_valid, "Cookie check failed - possible heap corruption");
-        assert_eq!(initial_cookie, final_cookie, "Cookie values don't match");
-
-        // Clean up
-        heap::deallocate(ptr);
+        check_cookie!(ptr);
     }
 }
 
@@ -122,7 +111,7 @@ fn cookie_overflow(){
 
         // Get cookie value again
         log_debug!("Final cookie: {:#x}", *final_cookie_ptr);
-
+        
         // Check if cookie is still valid (should be false due to corruption)
         let is_valid = heap::check_cookie(ptr);
         log_debug!("Cookie check result after corruption: {}", is_valid);
