@@ -1,5 +1,6 @@
 use crate::proc::SystemProcess;
 use crate::utils::LinkedList;
+use crate::log_debug;
 
 #[test_case]
 #[inline(never)]
@@ -23,12 +24,12 @@ fn test_scheduler() {
 // Dummy entry points for processes
 extern "C" fn process_1_entry() {
     loop {
-        // Process 1 logic
+        log_debug!("Process 1");
     }
 }
 
 extern "C" fn process_2_entry() {
     loop {
-        // Process 2 logic
+        log_debug!("Process 2");
     }
 }

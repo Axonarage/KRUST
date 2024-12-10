@@ -59,7 +59,7 @@ pub unsafe fn initialize_heap() -> () {
     HEAP_INIT = true;
 }
 
-pub unsafe fn pv_port_malloc(mut wanted_size: usize) -> *mut u8 {
+pub unsafe fn allocate(mut wanted_size: usize) -> *mut u8 {
     if wanted_size == 0 {
         return ptr::null_mut();
     }
@@ -106,7 +106,7 @@ pub unsafe fn pv_port_malloc(mut wanted_size: usize) -> *mut u8 {
     (allocated_block as *mut u8).add(BLOCK_HEADER_SIZE)
 }
 
-pub unsafe fn v_port_free(ptr: *mut u8) {
+pub unsafe fn deallocate(ptr: *mut u8) {
     if ptr.is_null() {
         return;
     }

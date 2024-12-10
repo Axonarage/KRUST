@@ -1,5 +1,5 @@
 use crate::log_debug;
-mod heap_test;
+mod scheduler;
 //mod exception_test;
 
 #[cfg(test)]

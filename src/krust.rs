@@ -13,6 +13,9 @@ mod test;
 mod proc;
 mod memory_management;
 
+use crate::proc::SystemProcess;
+use crate::utils::LinkedList;
+
 /// Krust main function called by the Reset handler
 pub fn main() -> ! {
     
@@ -26,7 +29,33 @@ pub fn main() -> ! {
     #[cfg(test)]
     test_runner();
 
-    init::start_sys_tick();   
+    // Initialize the system process manager
+    let mut system_process = SystemProcess {
+        last_proc_id: 0,
+        process_list: LinkedList::new(),
+    };
 
-    loop {}
+    // Create some processes
+    system_process.create_process("Process 1", process_1_entry as usize);
+    system_process.create_process("Process 2", process_2_entry as usize);
+
+    log_debug!("Processes created");
+
+    // Main scheduler loop
+    loop {
+        system_process.schedule_next_process();
+    } 
+}
+
+// Dummy entry points for processes
+extern "C" fn process_1_entry() {
+    loop {
+        log_debug!("Process 1");
+    }
+}
+
+extern "C" fn process_2_entry() {
+    loop {
+        log_debug!("Process 2");
+    }
 }

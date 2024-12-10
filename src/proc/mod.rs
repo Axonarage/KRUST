@@ -100,7 +100,7 @@ struct ProcessState {
 /// This struct is the kernel representation of a process
 /// Using this struct, the scheduler can transfert the execution flow to the represented process
 #[derive(Default,PartialEq)]
-struct Process {
+pub struct Process {
     proc_name: &'static str,
     proc_id: u16,
     status: ProcStatus,
