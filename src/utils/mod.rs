@@ -7,4 +7,13 @@ pub mod macros {
             cortex_m_semihosting::hprintln!("{}", format_args!($($arg)*)).ok()
         };
     }
+
+    #[macro_export]
+    macro_rules! check_cookie {
+        ($ptr:expr) => {
+            if(!crate::memory_management::heap::check_cookie($ptr)){
+                panic!("Heap corruption detected!");
+            }
+        };
+    }
 }

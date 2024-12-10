@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["exception_test"]};
+window.SIDEBAR_ITEMS = {"mod":["heap_test"]};

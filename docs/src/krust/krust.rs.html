@@ -27,7 +27,14 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a></pre></div><pre class="rust"><code><span class="doccomment">//! Main logic of Krust kernel
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a>
+<a href="#36" id="36">36</a></pre></div><pre class="rust"><code><span class="doccomment">//! Main logic of Krust kernel
 
 </span><span class="attr">#![no_std]
 #![no_main]
@@ -36,19 +43,26 @@
 #![test_runner(test::test_runner)]
 #![reexport_test_harness_main = <span class="string">"test_runner"</span>]
 
-</span><span class="kw">mod </span>init;
+</span><span class="kw">extern crate </span>alloc;
+
+<span class="kw">mod </span>init;
 <span class="kw">mod </span>utils;
 <span class="kw">mod </span>test;
+<span class="kw">mod </span>memory_management;
 
 <span class="doccomment">/// Krust main function called by the Reset handler
 </span><span class="kw">pub fn </span>main() -&gt; ! {
     
     <span class="macro">log_debug!</span>(<span class="string">"KRUST"</span>);
-
+    
     <span class="kw">unsafe </span>{
         init::enable_system_handler_fault();
+        memory_management::heap::initialize_heap();
     }
-    
+
+    <span class="kw">let </span>vec = <span class="macro">alloc::vec!</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>, <span class="number">4</span>];
+    <span class="macro">log_debug!</span>(<span class="string">"{:?}"</span>, vec);
+
     <span class="attr">#[cfg(test)]
     </span>test_runner();
 
