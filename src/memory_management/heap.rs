@@ -1,5 +1,3 @@
-#![no_std]
-
 use core::mem::{align_of, size_of};
 use core::ptr;
 
@@ -34,18 +32,18 @@ static mut END: BlockLink = BlockLink {
 
 static mut FREE_BYTES_REMAINING: usize = HEAP_SIZE;
 
+#[allow(unsafe_op_in_unsafe_fn)]
 pub unsafe fn initialize_heap() -> () {
     if HEAP_INIT {
         return;
     }
-
 
     let aligned_heap_start = (&raw const HEAP as *const _ as usize + (ALIGNMENT - 1)) & ALIGNMENT_MASK;
     let aligned_heap_end = &raw const HEAP as *const _ as usize + HEAP_SIZE;
     let heap_size = aligned_heap_end - aligned_heap_start;
 
     let first_free = aligned_heap_start as *mut BlockLink;
-
+    
     (*first_free).next_free = &raw const END as *mut _;
     (*first_free).block_size = heap_size - BLOCK_HEADER_SIZE;
 
@@ -59,6 +57,7 @@ pub unsafe fn initialize_heap() -> () {
     HEAP_INIT = true;
 }
 
+#[allow(unsafe_op_in_unsafe_fn)]
 pub unsafe fn allocate(mut wanted_size: usize) -> *mut u8 {
     if wanted_size == 0 {
         return ptr::null_mut();
@@ -106,6 +105,7 @@ pub unsafe fn allocate(mut wanted_size: usize) -> *mut u8 {
     (allocated_block as *mut u8).add(BLOCK_HEADER_SIZE)
 }
 
+#[allow(unsafe_op_in_unsafe_fn)]
 pub unsafe fn deallocate(ptr: *mut u8) {
     if ptr.is_null() {
         return;
@@ -135,10 +135,15 @@ pub unsafe fn deallocate(ptr: *mut u8) {
     FREE_BYTES_REMAINING += (*block_to_free).block_size;
 }
 
-pub unsafe fn get_free_heap_size() -> usize {
-    FREE_BYTES_REMAINING
+#[allow(dead_code)]
+pub fn get_free_heap_size() -> usize {
+    unsafe {
+        FREE_BYTES_REMAINING
+    }
 }
 
+#[allow(dead_code)]
+#[allow(unsafe_op_in_unsafe_fn)]
 pub unsafe fn reset_heap() {
     HEAP_INIT = false;
     initialize_heap();
