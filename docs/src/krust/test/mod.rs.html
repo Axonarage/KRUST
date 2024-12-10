@@ -10,11 +10,13 @@
 <a href="#9" id="9">9</a>
 <a href="#10" id="10">10</a>
 <a href="#11" id="11">11</a>
-<a href="#12" id="12">12</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::log_debug;
+<a href="#12" id="12">12</a>
+<a href="#13" id="13">13</a></pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
+</span><span class="kw">use </span><span class="kw">crate</span>::log_debug;
+<span class="kw">mod </span>heap_test;
+<span class="comment">//mod exception_test;
 
-<span class="kw">mod </span>exception_test;
-
-<span class="attr">#[cfg(test)]
+</span><span class="attr">#[cfg(test)]
 </span><span class="kw">pub fn </span>test_runner(tests: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn()]) {
 
     <span class="kw">for </span>(i,test) <span class="kw">in </span>tests.into_iter().enumerate() {

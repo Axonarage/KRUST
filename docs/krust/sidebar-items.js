@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["main"],"macro":["log_debug"],"mod":["init","test","utils"]};
+window.SIDEBAR_ITEMS = {"fn":["main"],"macro":["check_cookie","log_debug"],"mod":["init","memory_management","test","utils"]};

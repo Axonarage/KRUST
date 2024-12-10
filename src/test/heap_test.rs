@@ -83,7 +83,7 @@ fn cookie_macro(){
         check_cookie!(ptr);
     }
 }
-
+    
 
 /// Test case for verifying heap cookie
 #[test_case]
