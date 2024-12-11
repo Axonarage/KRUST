@@ -47,9 +47,9 @@ use core::sync::atomic::{compiler_fence, Ordering};
 mod panic;
 mod handlers;
 mod systick;
-pub use crate::init::systick::start_sys_tick;
+pub use crate::init::systick::SysTick;
 use crate::main;
-pub use crate::init::handlers::{trigger_pendsv,CURRENT_PROCESS_STATE, NEXT_PROCESS_STATE};
+pub use crate::init::handlers::{trigger_pendsv,CURRENT_PROCESS_SP, NEXT_PROCESS_SP};
 
 #[repr(C)]
 #[allow(non_snake_case)]
@@ -66,7 +66,7 @@ pub struct ExceptionsHandlers {
     SVCall: unsafe extern "C" fn() -> !,
     Reserved_12: u32,
     Reserved_13: u32,
-    PendSV: unsafe extern "C" fn() -> !,
+    PendSV: unsafe extern "C" fn(),
     SysTick: unsafe extern "C" fn()
 }
 
@@ -91,7 +91,7 @@ pub static _EXCEPTIONS: ExceptionsHandlers = ExceptionsHandlers {
     SVCall: handlers::SVCallHandler,
     Reserved_12: 0,
     Reserved_13: 0,
-    PendSV: handlers::DefaultHandler,
+    PendSV: handlers::PendSV_Handler,
     SysTick: handlers::SysTickHandler
 };
 
@@ -204,8 +204,6 @@ pub extern "C" fn Reset() -> ! {
     unsafe {
         init_data(start,&_sidata,end.offset_from(start) as usize);
     }
-
-    systick::init_sys_tick(0x00FF_FFFF);
 
     // main() trampoline
     #[inline(never)]

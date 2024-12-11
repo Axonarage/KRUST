@@ -1,39 +1,43 @@
 use crate::utils::LinkedList;
-use crate::init::{trigger_pendsv, CURRENT_PROCESS_STATE, NEXT_PROCESS_STATE};
+use crate::init::{trigger_pendsv, CURRENT_PROCESS_SP, NEXT_PROCESS_SP};
 
 type Unknown = u8;
 
 #[derive(Default,PartialEq)]
+#[allow(dead_code)]
 pub enum ProcStatus{
     #[default] Idle,
     Running,
     Waiting,
     Finished
 }
+
 pub struct SystemProcess {
-    pub last_proc_id: u16,
-    pub process_list: LinkedList<Process>
+    last_proc_id: u16,
+    process_list: LinkedList<Process>
 }
 
+unsafe impl Send for SystemProcess {}
+unsafe impl Sync for SystemProcess {}
+
 impl SystemProcess {
+    pub fn new() -> SystemProcess {
+        SystemProcess {
+            last_proc_id: 0,
+            process_list: LinkedList::new()
+        }
+    }
+
     fn get_new_proc_id(&mut self) -> u16 {
         self.last_proc_id += 1;
         self.last_proc_id
     }
 
-    fn get_new_proc_state(&mut self) -> ProcessState {
-        ProcessState::default()
-    }
-
-    pub fn create_process(&mut self, name: &'static str,  entry_point: usize) {
+    pub fn create_process(&mut self, name: &'static str,  entry_point: u32) {
         let stack = [0; 1024]; // Allocate stack memory
-        let sp = stack.as_ptr() as usize + 1024; // Calculate initial SP
+        let sp = stack.as_ptr() as u32 + 1024; // Calculate initial SP
 
-        let mut new_state = self.get_new_proc_state();
-        new_state.sp = sp; // Set the stack pointer
-        new_state.pc = entry_point; // Set the program counter
-
-        let new_proc = Process::new(name, self.get_new_proc_id(), new_state);
+        let new_proc = Process::new(name, self.get_new_proc_id(), sp,entry_point);
         self.process_list.add(new_proc);
     }
 
@@ -72,7 +76,7 @@ impl SystemProcess {
 
             // Save the current process state
             unsafe {
-                CURRENT_PROCESS_STATE = current_process.stored_state.sp;
+                current_process.stored_sp = CURRENT_PROCESS_SP;
             }
 
             // Mark the next process as Running
@@ -80,7 +84,7 @@ impl SystemProcess {
 
             // Restore the next process state
             unsafe {
-                NEXT_PROCESS_STATE = next_process.stored_state.sp;
+                NEXT_PROCESS_SP = next_process.stored_sp;
                 trigger_pendsv(); // Trigger the context switch
             }
         }
@@ -88,34 +92,27 @@ impl SystemProcess {
 
 }
 
-#[derive(Default,PartialEq)]
-struct ProcessState {
-    registers: [usize; 13], // r0 - r12
-    pc: usize, // Program Counter
-    sp: usize, // Stack Pointer
-    lr: usize, // Link Register
-    psr: usize // Program Status Registers
-}
-
 /// This struct is the kernel representation of a process
 /// Using this struct, the scheduler can transfert the execution flow to the represented process
 #[derive(Default,PartialEq)]
-pub struct Process {
+struct Process {
     proc_name: &'static str,
     proc_id: u16,
     status: ProcStatus,
     mem_regions: [Unknown; 8],
-    stored_state : ProcessState
+    stored_sp: u32,
+    entry_point: u32
 }
 
 impl Process {
-    pub fn new(name: &'static str,proc_id: u16, proc_state: ProcessState) -> Self {
+    fn new(name: &'static str,proc_id: u16, init_sp: u32, entry_point: u32) -> Self {
         Process {
             proc_name: name,
             proc_id,
             status: ProcStatus::Idle,
             mem_regions: [0;8],
-            stored_state: proc_state
+            stored_sp: init_sp,
+            entry_point: entry_point
         }
     }
 }

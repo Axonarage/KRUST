@@ -16,8 +16,17 @@ mod proc;
 mod memory_management;
 
 use crate::proc::SystemProcess;
-use crate::utils::LinkedList;
+use core::arch::asm;
+use init::SysTick;
 
+
+use lazy_static::lazy_static;
+use spin::Mutex;
+use cortex_m::interrupt;
+
+lazy_static! {
+    pub static ref SYSTEM_PROCESS: Mutex<SystemProcess> = Mutex::new(SystemProcess::new());
+}
 /// Krust main function called by the Reset handler
 pub fn main() -> ! {
     
@@ -35,22 +44,26 @@ pub fn main() -> ! {
     #[cfg(test)]
     test_runner();
 
-    // Initialize the system process manager
-    let mut system_process = SystemProcess {
-        last_proc_id: 0,
-        process_list: LinkedList::new(),
-    };
+    let mut sys_tick: SysTick;
+
+    sys_tick = init::SysTick::new();
+    sys_tick.init_sys_tick();
+    sys_tick.set_sys_tick_reload_us(10_000_000);
 
     // Create some processes
-    system_process.create_process("Process 1", process_1_entry as usize);
-    system_process.create_process("Process 2", process_2_entry as usize);
-
+    interrupt::free(|_cs| {
+        let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
+        system_process.create_process("proc_test", test_process as u32);
+        system_process.create_process("Process 1", process_1_entry as u32);
+        system_process.create_process("Process 2", process_2_entry as u32);
+    });
+    
     log_debug!("Processes created");
 
-    // Main scheduler loop
-    loop {
-        system_process.schedule_next_process();
-    } 
+    sys_tick.start_sys_tick();
+    test_process();
+
+    loop{}
 }
 
 // Dummy entry points for processes
@@ -63,5 +76,26 @@ extern "C" fn process_1_entry() {
 extern "C" fn process_2_entry() {
     loop {
         log_debug!("Process 2");
+    }
+}
+
+#[allow(named_asm_labels)]
+extern "C" fn test_process(){
+    unsafe {
+        asm!(
+        "
+            MOV R0, #0              // Initialize counter to 0
+            MOV R7, #1 
+            MOV R8, #2               
+            LDR R1, =10000000       // Set the limit to 10,000,000
+
+            loop:
+                ADD R0, R0, #1          // Increment counter (R0)
+                ADD R7, R7, #1          
+                ADD R8, R8, #1          
+                CMP R0, R1              // Compare counter with the limit
+                BLT loop                // If counter < 10,000,000, loop again  
+        "
+        )
     }
 }

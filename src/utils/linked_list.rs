@@ -2,7 +2,6 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use core::ptr;
-use core::mem;
 
 struct Node<T> {
     data: T,
@@ -53,14 +52,14 @@ impl<T: PartialEq> LinkedList<T> {
                 if (*node).data == data {
                     if prev.is_null() {
                         self.head = (*node).next;
-                        mem::drop(node);
+                        drop(Box::from_raw(node));
                     } else if self.tail == node {
-                        mem::drop(self.tail);
+                        drop(Box::from_raw(self.tail));
                         self.tail = prev;
                         (*prev).next = ptr::null_mut();
                     } else {
                         (*prev).next = (*node).next;
-                        mem::drop(node);
+                        drop(Box::from_raw(node));
                     }
                     return true;
                 } else {

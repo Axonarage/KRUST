@@ -1,6 +1,8 @@
 use core::sync::atomic::{compiler_fence, Ordering};
 use crate::log_debug;
 use core::arch::asm;
+use cortex_m::interrupt;
+use crate::SYSTEM_PROCESS;
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn DefaultHandler() -> ! {
@@ -388,6 +390,35 @@ fn GetFaultAddress(ADDR: u32) -> u32 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn SysTickHandler() {
     log_debug!("SYSTICK Handler");
+    let reg0: u32;
+    let reg1: u32;
+    let reg7: u32;
+    let reg8: u32;
+
+    unsafe {
+        asm!(" 
+            mov {0}, r0
+            mov {1}, r1
+            mov {2}, r7
+            mov {3}, r8
+        ",out(reg) reg0,out(reg) reg1,out(reg) reg7,out(reg) reg8);
+
+        log_debug!("R0 {:#x}\nR1 {:#x}\nR7 {:#x}\nR8 {:#x}",reg0,reg1,reg7,reg8);
+
+        // asm!(
+        //     "      
+        //     // Set nPRIV to Privileged          
+        //     mov r0, #0
+        //     msr CONTROL, r0                 
+        //     isb       
+        
+        //     // EXC_RETURN = 0xFFFFFFF9 => return to Thread mode with Main stack
+        //     ldr lr, =0xFFFFFFF9
+            
+        //     bx lr
+        // ");
+    }
+    trigger_pendsv();
     return ;
 }
 
@@ -406,18 +437,26 @@ pub unsafe extern "C" fn SVCallHandler() -> ! {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn PendSV_Handler() {
     unsafe{
+        // Save the current process state
         asm!(
             "
-            // Save the current process state
             mrs r0, psp             // Get the process stack pointer
-            stmdb r0!, {{r4-r11}}   // Store callee-saved registers on process stack
-            ldr r1, =CURRENT_PROCESS_STATE
+            stmdb r0!, {{r4-r11,r14}}   // Store callee-saved registers on process stack
+            ldr r1, =CURRENT_PROCESS_SP
             str r0, [r1]            // Save PSP to current process state
-    
-            // Load the next process state
-            ldr r2, =NEXT_PROCESS_STATE
+        ");
+
+        
+        interrupt::free(|_cs| {
+            let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
+            system_process.schedule_next_process();
+        });
+
+        // Load the next process state
+        asm!("
+            ldr r2, =NEXT_PROCESS_SP
             ldr r0, [r2]            // Load PSP of next process
-            ldmia r0!, {{r4-r11}}   // Restore callee-saved registers
+            ldmia r0!, {{r4-r11,r14}}   // Restore callee-saved registers
             msr psp, r0             // Update process stack pointer
     
             // Return from exception
@@ -430,12 +469,16 @@ pub unsafe extern "C" fn PendSV_Handler() {
 
 // Pointers to the current and next process state (dummy implementation for now)
 #[unsafe(no_mangle)]
-pub static mut CURRENT_PROCESS_STATE: usize = 0;
+pub static mut CURRENT_PROCESS_SP: u32 = 0;
 #[unsafe(no_mangle)]
-pub static mut NEXT_PROCESS_STATE: usize = 0;
+pub static mut NEXT_PROCESS_SP: u32 = 0;
 
 pub fn trigger_pendsv() {
+    const ICSR_ADDR: u32 = 0xE000ED04; // Interrupt Control State Register
+    const PENDSVSET: u32 = 1 << 28; // PendSV Set-Pending bit
+
+    let icsr = ICSR_ADDR as *mut u32;
     unsafe {
-        asm!("svc 0"); // Trigger the PendSV exception
+    core::ptr::write_volatile(icsr, PENDSVSET);
     }
 }
