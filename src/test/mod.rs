@@ -1,6 +1,7 @@
 #![allow(unused_imports)]
 use crate::log_debug;
 mod heap_test;
+mod mpu_test;
 //mod exception_test;
 
 #[cfg(test)]

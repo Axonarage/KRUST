@@ -16,16 +16,12 @@ mod memory_management;
 
 /// Krust main function called by the Reset handler
 pub fn main() -> ! {
-    
     log_debug!("KRUST");
     
     unsafe {
         init::enable_system_handler_fault();
         memory_management::heap::initialize_heap();
     }
-
-    let vec = alloc::vec![1, 2, 3, 4];
-    log_debug!("{:?}", vec);
 
     #[cfg(test)]
     test_runner();
