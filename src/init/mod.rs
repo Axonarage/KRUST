@@ -49,7 +49,7 @@ mod handlers;
 mod systick;
 pub use crate::init::systick::SysTick;
 use crate::main;
-pub use crate::init::handlers::{trigger_pendsv,CURRENT_PROCESS_SP, NEXT_PROCESS_SP};
+pub use crate::init::handlers::{CURRENT_PROCESS_SP, NEXT_PROCESS_SP};
 
 #[repr(C)]
 #[allow(non_snake_case)]
@@ -63,7 +63,7 @@ pub struct ExceptionsHandlers {
     Reserved_8: u32,
     Reserved_9: u32,
     Reserved_10: u32,
-    SVCall: unsafe extern "C" fn() -> !,
+    SVCall: unsafe extern "C" fn(),
     Reserved_12: u32,
     Reserved_13: u32,
     PendSV: unsafe extern "C" fn(),

@@ -16,13 +16,11 @@ mod proc;
 mod memory_management;
 
 use crate::proc::SystemProcess;
-use core::arch::asm;
 use init::SysTick;
 
 
 use lazy_static::lazy_static;
 use spin::Mutex;
-use cortex_m::interrupt;
 
 lazy_static! {
     pub static ref SYSTEM_PROCESS: Mutex<SystemProcess> = Mutex::new(SystemProcess::new());
@@ -30,16 +28,13 @@ lazy_static! {
 /// Krust main function called by the Reset handler
 pub fn main() -> ! {
     
-    log_debug!("KRUST");
+    log_debug!("=== KRUST ===");
     
     unsafe {
         init::enable_system_handler_fault();
         init::setup_priority_handler();
         memory_management::heap::initialize_heap();
     }
-
-    let vec = alloc::vec![1, 2, 3, 4];
-    log_debug!("{:?}", vec);
 
     #[cfg(test)]
     test_runner();
@@ -48,54 +43,82 @@ pub fn main() -> ! {
 
     sys_tick = init::SysTick::new();
     sys_tick.init_sys_tick();
-    sys_tick.set_sys_tick_reload_us(10_000_000);
+    sys_tick.set_sys_tick_reload_us(10); //10_000_000
 
-    // Create some processes
-    interrupt::free(|_cs| {
+    let mut pid: u16;
+
+    log_debug!("\n### NEW PROC 1 ###");
+
+    // Create PROC 1
+    {
         let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
-        system_process.create_process("proc_test", test_process as u32);
-        system_process.create_process("Process 1", process_1_entry as u32);
-        system_process.create_process("Process 2", process_2_entry as u32);
-    });
+        pid = system_process.create_process("proc_1", TEST_1_PROC_BYTE_CODE, TEST_1_PROC_BYTE_CODE.len());
+
+        let proc = system_process.get_process_by_id(pid).expect("No process with this ID");
+
+        log_debug!("PID : {}",pid);
+        log_debug!("Entry Point : {:p}",proc.get_entry_point());
+        log_debug!("PSP : {:#x}",proc.get_stack_ptr());
+    }
+
+    log_debug!("\n### NEW PROC 2 ###");
+
+    // Create PROC 2
+    {
+        let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
+        pid = system_process.create_process("proc_2", TEST_2_PROC_BYTE_CODE, TEST_2_PROC_BYTE_CODE.len());
+
+        let proc = system_process.get_process_by_id(pid).expect("No process with this ID");
+
+        log_debug!("PID : {}",pid);
+        log_debug!("Entry Point : {:p}",proc.get_entry_point());
+        log_debug!("PSP : {:#x}",proc.get_stack_ptr());
+    }
     
-    log_debug!("Processes created");
-
     sys_tick.start_sys_tick();
-    test_process();
-
+   
     loop{}
 }
 
-// Dummy entry points for processes
-extern "C" fn process_1_entry() {
-    loop {
-        log_debug!("Process 1");
-    }
-}
+const TEST_1_PROC_BYTE_CODE: &[u8;48] = b"\x08\x4a\x09\x49\x08\xf1\x01\x08\x88\x45\xfb\xdb\x09\xf1\x01\x09\x89\x45\xf7\xdb\x00\xf1\x01\x00\x88\x42\xf3\xdb\x4f\xf0\x00\x00\x02\x49\x00\xdf\xde\xc0\xad\x0b\xff\xff\xff\xff\x01\xc0\xad\x0b";
+// LDR R2, =0xbadc0de
+// LDR R1, = 0xffffffff
 
-extern "C" fn process_2_entry() {
-    loop {
-        log_debug!("Process 2");
-    }
-}
+// loop_0:
+//     loop_1:
+//         loop_2:
+//             ADD R8, R8, #1
+//             CMP R8, R1
+//             BLT loop_2
+//         ADD R9, R9, #1
+//         CMP R9, R1
+//         BLT loop_1
+//     ADD R0, R0, #1
+//     CMP R0, R1
+//     BLT loop_0
 
-#[allow(named_asm_labels)]
-extern "C" fn test_process(){
-    unsafe {
-        asm!(
-        "
-            MOV R0, #0              // Initialize counter to 0
-            MOV R7, #1 
-            MOV R8, #2               
-            LDR R1, =10000000       // Set the limit to 10,000,000
+// MOV R0, #0
+// LDR R1, =0xbadc001
+// SVC 0
 
-            loop:
-                ADD R0, R0, #1          // Increment counter (R0)
-                ADD R7, R7, #1          
-                ADD R8, R8, #1          
-                CMP R0, R1              // Compare counter with the limit
-                BLT loop                // If counter < 10,000,000, loop again  
-        "
-        )
-    }
-}
+
+const TEST_2_PROC_BYTE_CODE: &[u8;48] = b"\x08\x4a\x09\x49\x08\xf1\x01\x08\x88\x45\xfb\xdb\x09\xf1\x01\x09\x89\x45\xf7\xdb\x00\xf1\x01\x00\x88\x42\xf3\xdb\x4f\xf0\x00\x00\x02\x49\x00\xdf\xde\xc0\xad\xde\xff\xff\xff\xff\x01\xc0\xad\xde";
+// LDR R2, =0xdeadc0de
+// LDR R1, = 0xffffffff
+
+// loop_0:
+//     loop_1:
+//         loop_2:
+//             ADD R8, R8, #1
+//             CMP R8, R1
+//             BLT loop_2
+//         ADD R9, R9, #1
+//         CMP R9, R1
+//         BLT loop_1
+//     ADD R0, R0, #1
+//     CMP R0, R1
+//     BLT loop_0
+
+// MOV R0, #0
+// LDR R1, =0xdeadc001
+// SVC 0

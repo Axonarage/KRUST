@@ -389,79 +389,157 @@ fn GetFaultAddress(ADDR: u32) -> u32 {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn SysTickHandler() {
-    log_debug!("SYSTICK Handler");
-    let reg0: u32;
-    let reg1: u32;
-    let reg7: u32;
-    let reg8: u32;
+    log_debug!("\n### SYSTICK Handler ###");
 
-    unsafe {
-        asm!(" 
-            mov {0}, r0
-            mov {1}, r1
-            mov {2}, r7
-            mov {3}, r8
-        ",out(reg) reg0,out(reg) reg1,out(reg) reg7,out(reg) reg8);
+    // unsafe {
+    //     asm!(
+    //         "mrs r0, CONTROL",  // Read CONTROL
+    //         "bic r0, r0, #0b11",// Clear CONTROL.{nPRIV,SPSEL}  => privileged thread mode and use MSP
+    //         "msr CONTROL, r0",  // Update CONTROL
+    //         "isb"               // Flush pipeline
+    //     );
+    // }
 
-        log_debug!("R0 {:#x}\nR1 {:#x}\nR7 {:#x}\nR8 {:#x}",reg0,reg1,reg7,reg8);
+    // unsafe {
+    //     let reg0: usize;
+    //     let reg2: usize;
+    //     let reg4: usize;
+    //     let reg8: usize;
+    //     let reg9: usize;
 
-        // asm!(
-        //     "      
-        //     // Set nPRIV to Privileged          
-        //     mov r0, #0
-        //     msr CONTROL, r0                 
-        //     isb       
-        
-        //     // EXC_RETURN = 0xFFFFFFF9 => return to Thread mode with Main stack
-        //     ldr lr, =0xFFFFFFF9
-            
-        //     bx lr
-        // ");
-    }
+    //     asm!(" 
+    //         mov {0}, r0
+    //         mov {1}, r2
+    //         mov {2}, r4
+    //         mov {3}, r8
+    //         mov {4}, r9
+    //     ",out(reg) reg0,out(reg) reg2,out(reg) reg4,out(reg) reg8,out(reg) reg9);
+
+    //     log_debug!("R0 {:#x}\nR2 {:#x}\nR4 {:#x}\nR8 {:#x}\nR9 {:#x}",reg0,reg2,reg4,reg8,reg9);
+    // }
+
     trigger_pendsv();
+    
+    unsafe{
+        asm!(
+            "ldr lr, =0xFFFFFFF9", // EXC_RETURN = 0xFFFFFFF9 => return to Thread mode with Main stack
+            "bx lr"
+        );
+    }
     return ;
 }
 
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn SVCallHandler() -> ! {
-    log_debug!("SVCAll Handler");
+#[allow(unused_variables,unused_assignments)]
+pub unsafe extern "C" fn SVCallHandler() {
+    
+    let syscall_n: u32;
+    let arg0: u32;
+    let arg1: u32;
+    let arg2: u32;
 
-    // Redirect with syscall
-    loop {
-        compiler_fence(Ordering::SeqCst);
+    unsafe { 
+        asm!(
+            "mov {0}, r0", 
+            "mov {1}, r1", 
+            "mov {2}, r2", 
+            "mov {3}, r3", 
+            out(reg) syscall_n, out(reg) arg0, out(reg) arg1, out(reg) arg2
+        ); 
+    }
+
+    log_debug!("\n### SVCAll Handler ###");
+
+    // Handle the syscall based on the number in R0
+    match syscall_n {
+        0 => {
+            // SYS_EXIT
+            log_debug!("[SYS_EXIT] Return code {:#x}",arg0);
+            interrupt::free(|_cs| {
+                let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
+                system_process.kill_current_process()
+            });
+        }
+        1 => {
+            // SYS_PRINT
+            log_debug!("[SYS_PRINT] {:#x}",arg0);
+        }
+        _ => {
+            log_debug!("Unknown syscall : {}", syscall_n);
+        }
     }
 }
 
-
+/// PendSV_Handler performing context switch
+/// 
+/// Exception frame on stack
+/// 
+/// ```
+/// +--------+ < SP
+/// | R0     |
+/// +--------+
+/// | R1     |
+/// +--------+
+/// | R2     |
+/// +--------+
+/// | R3     |
+/// +--------+
+/// | R12    |
+/// +--------+
+/// | LR     |
+/// +--------+
+/// | PC     |
+/// +--------+
+/// | RETPSR |
+/// +--------+
+/// ```
+/// 
+/// PendSV_Handler also saves registers r4 to r11 on top of the Exception frame.
+/// 
+///
 #[unsafe(no_mangle)]
+#[allow(static_mut_refs)]
 pub unsafe extern "C" fn PendSV_Handler() {
-    unsafe{
-        // Save the current process state
-        asm!(
-            "
-            mrs r0, psp             // Get the process stack pointer
-            stmdb r0!, {{r4-r11,r14}}   // Store callee-saved registers on process stack
-            ldr r1, =CURRENT_PROCESS_SP
-            str r0, [r1]            // Save PSP to current process state
-        ");
+    log_debug!("\n### PENDSV Handler ###");
 
-        
+    unsafe {
+        asm!("CPSID I");  // Disable interrupts
+    }
+
+    unsafe{
+        if CURRENT_PROCESS_SP != 0 {
+            // Save the current process state
+            asm!(
+                "
+                mrs r0, psp             // Get the process stack pointer
+                stmdb r0!, {{r4-r11}}   // Store callee-saved registers on process stack
+                ldr r1, =CURRENT_PROCESS_SP
+                str r0, [r1]            // Save PSP to current process state
+            ");
+        }
+
         interrupt::free(|_cs| {
             let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
             system_process.schedule_next_process();
         });
 
-        // Load the next process state
-        asm!("
-            ldr r2, =NEXT_PROCESS_SP
-            ldr r0, [r2]            // Load PSP of next process
-            ldmia r0!, {{r4-r11,r14}}   // Restore callee-saved registers
-            msr psp, r0             // Update process stack pointer
-    
-            // Return from exception
-            bx lr
-            ",
+        log_debug!("NEXT_PROCESS_SP : {:#x}",NEXT_PROCESS_SP);
+
+        if NEXT_PROCESS_SP != 0 {
+            // Load the next process state
+            asm!(
+                "ldr r2, =NEXT_PROCESS_SP",
+                "ldr r0, [r2]",             // Load PSP of next process
+                "ldmia r0!, {{r4-r11}}",// Restore callee-saved registers
+                "msr psp, r0",              // Update process stack pointer
+            );
+        }
+
+        asm!(
+            "CPSIE I",  // Enable interrupts
+            "ldr lr, =0xFFFFFFFD", // EXC_RETURN = 0xFFFFFFFD => return to Thread mode with Process stack
+            "bx lr", // Return from exception
             options(noreturn)
         );
     }
