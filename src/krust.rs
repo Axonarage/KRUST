@@ -56,7 +56,7 @@ pub fn main() -> ! {
     // Create PROC 1
     {
         let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
-        pid = system_process.create_process("proc_1", TEST_1_PROC_BYTE_CODE, TEST_1_PROC_BYTE_CODE.len());
+        pid = system_process.create_process("proc_1", TEST_1_PROC_BYTE_CODE, TEST_1_PROC_BYTE_CODE.len(), 1);
 
         let proc = system_process.get_process_by_id(pid).expect("No process with this ID");
 
@@ -70,7 +70,7 @@ pub fn main() -> ! {
     // Create PROC 2
     {
         let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
-        pid = system_process.create_process("proc_2", TEST_2_PROC_BYTE_CODE, TEST_2_PROC_BYTE_CODE.len());
+        pid = system_process.create_process("proc_2", TEST_2_PROC_BYTE_CODE, TEST_2_PROC_BYTE_CODE.len(), 0);
 
         let proc = system_process.get_process_by_id(pid).expect("No process with this ID");
 

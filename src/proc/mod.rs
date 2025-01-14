@@ -64,6 +64,16 @@ impl SystemProcess {
         self.get_process_by_id(self.current_process_id)
     }
 
+    /// Get priority of the running process
+    pub fn get_current_priority_process(&mut self) -> u8 {
+        for process in self.process_list.iter() {
+            if process.proc_id == self.current_process_id {
+                return process.priority;
+            }
+        }
+        return 255;
+    }
+
 
     /// Creates a new process, assigns a process ID, allocates memory for its code and stack, 
     /// initializes the stack frame, and adds the new process to the process list.
@@ -78,7 +88,7 @@ impl SystemProcess {
     ///
     /// # IMPORTANT
     /// Process code MUST end with a SYS_EXIT then an infinite loop
-    pub fn create_process(&mut self, name: &'static str, code_ptr: &[u8], code_len: usize) -> u16 {
+    pub fn create_process(&mut self, name: &'static str, code_ptr: &[u8], code_len: usize, priority: u8) -> u16 {
         let pid = self.get_new_proc_id();
 
         let entry_point = self.load_process_code(code_ptr, code_len);
@@ -90,7 +100,7 @@ impl SystemProcess {
         let sp = stack as usize + DEFAULT_STACK_SIZE - INIT_STACK_FRAME_SIZE; // Calculate initial SP
         self.create_init_stack_frame(sp as *mut u8,entry_point);
 
-        let new_proc = Process::new(name, pid,stack, sp as u32, entry_point);
+        let new_proc = Process::new(name, pid,stack, sp as u32, entry_point, priority);
         self.process_list.add(new_proc);
         return pid;
 
@@ -181,7 +191,7 @@ impl SystemProcess {
     ///
     /// It performs the following:
     /// - Collects the processes that are finished and calls `kill_process` on them.
-    /// - Iterates over the list of processes to identify the next idle process and the currently running process.
+    /// - Iterates over the list of processes to identify the next idle process and the currently running process based on priority.
     /// - Marks the current running process as idle, saves its state, and schedules the next process.
     ///
     /// # Panics
@@ -208,18 +218,27 @@ impl SystemProcess {
             self.kill_process(proc_id);  // Call kill_process outside of the loop
         }
 
+        // Filter processes by priority
+        let highest_priority = self.process_list.iter()
+            .filter(|process| process.status == ProcStatus::Idle)
+            .min_by_key(|process| process.priority)
+            .map(|process| process.priority);
+        
         // Iterate over the LinkedList to find the idle and running processes
         for process in self.process_list.iter_mut() {
-            if process.status == ProcStatus::Idle && next_process.is_none() {
-                log_debug!("Next Process : {}",process.proc_name);
-                next_process = Some(process);
-            }
-            else if process.status == ProcStatus::Running {
-                log_debug!("Current Process : {}",process.proc_name);
+            if process.status == ProcStatus::Running {
+                log_debug!("Current Process: {}", process.proc_name);
+                log_debug!("Priority : {}", process.priority);
                 current_process = Some(process);
+            } else if process.status == ProcStatus::Idle {
+                if let Some(priority) = highest_priority {
+                    if process.priority == priority && next_process.is_none() {
+                        log_debug!("Next Process: {}", process.proc_name);
+                        next_process = Some(process);
+                    }
+                }
             }
         }
-
         if let Some(ref mut current_process) = current_process {
             // Mark the current process as Idle
             current_process.status = ProcStatus::Idle;
@@ -272,11 +291,12 @@ pub struct Process {
     mem_regions: [Unknown; 8],
     stack: *mut u8,
     stored_sp: u32,
-    entry_point: *mut u8
+    entry_point: *mut u8,
+    priority: u8
 }
 
 impl Process {
-    fn new(name: &'static str,proc_id: u16, stack_ptr: *mut u8, init_sp: u32, entry_point: *mut u8) -> Self {
+    fn new(name: &'static str,proc_id: u16, stack_ptr: *mut u8, init_sp: u32, entry_point: *mut u8, priority: u8) -> Self {
         Process {
             proc_name: name,
             proc_id,
@@ -284,7 +304,8 @@ impl Process {
             mem_regions: [0;8],
             stack: stack_ptr,
             stored_sp: init_sp,
-            entry_point: entry_point
+            entry_point: entry_point,
+            priority: priority
         }
     }
 
