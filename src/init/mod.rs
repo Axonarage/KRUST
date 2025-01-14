@@ -129,6 +129,7 @@ pub unsafe fn setup_priority_handler() {
         SVCall : 2
       */
 
+    #[allow(dead_code)]
     unsafe {
         const SHPR1_ADDR: u32 = 0xE000ED18;
         const SHPR2_ADDR: u32 = 0xE000ED1C;

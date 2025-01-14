@@ -47,7 +47,7 @@ pub fn main() -> ! {
 
     sys_tick = init::SysTick::new();
     sys_tick.init_sys_tick();
-    sys_tick.set_sys_tick_reload_us(10_000); //10_000_000
+    sys_tick.set_sys_tick_reload_us(10_000_000);
 
     let mut pid: u16;
 
