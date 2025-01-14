@@ -4,9 +4,15 @@
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
 <a href="#5" id="5">5</a>
-<a href="#6" id="6">6</a></pre></div><pre class="rust"><code><span class="kw">use </span>core::panic::PanicInfo;
+<a href="#6" id="6">6</a>
+<a href="#7" id="7">7</a>
+<a href="#8" id="8">8</a>
+<a href="#9" id="9">9</a></pre></div><pre class="rust"><code><span class="kw">use </span>core::panic::PanicInfo;
+<span class="kw">use </span><span class="kw">crate</span>::log_debug;
 
 <span class="attr">#[panic_handler]
-</span><span class="kw">fn </span>panic(_info: <span class="kw-2">&amp;</span>PanicInfo) -&gt; ! {
+</span><span class="kw">fn </span>panic(info: <span class="kw-2">&amp;</span>PanicInfo) -&gt; ! {
+    <span class="macro">log_debug!</span>(<span class="string">"== SYSTEM PANIC =="</span>);
+    <span class="macro">log_debug!</span>(<span class="string">"{}"</span>,info);
     <span class="kw">loop </span>{}
 }</code></pre></div></section></main></body></html>

@@ -1,5 +1,8 @@
 use core::sync::atomic::{compiler_fence, Ordering};
-use crate::log_debug;
+use crate::{log_debug, log_info};
+use core::arch::asm;
+use cortex_m::interrupt;
+use crate::SYSTEM_PROCESS;
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn DefaultHandler() -> ! {
@@ -386,18 +389,171 @@ fn GetFaultAddress(ADDR: u32) -> u32 {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn SysTickHandler() {
-    log_debug!("SYSTICK Handler");
-    return ;
+    trigger_pendsv();
 }
 
 
+/// Handles system calls (SVC) by processing the syscall number and its associated arguments.
+/// 
+/// This function is typically invoked when a system call (SVC) instruction is executed in user mode,
+/// and it performs the corresponding action based on the syscall number.
+///
+/// # Call Convention
+///     R0 <- SYSCALL_ID
+///     R1 <- ARG0
+///     R2 <- ARG1
+///     R3 <- ARG2
+/// 
+/// # Syscalls
+/// - `0`: SYS_EXIT - Terminates the current process.
+/// - `1`: SYS_PRINT - Prints arg0 in hex
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn SVCallHandler() -> ! {
-    log_debug!("SVCAll Handler");
+#[allow(unused_variables,unused_assignments)]
+pub unsafe extern "C" fn SVCallHandler() {
+    
+    let syscall_n: u32;
+    let arg0: u32;
+    let arg1: u32;
+    let arg2: u32;
 
-    // Redirect with syscall
-    loop {
-        compiler_fence(Ordering::SeqCst);
+    unsafe { 
+        asm!(
+            "mov {0}, r0", 
+            "mov {1}, r1", 
+            "mov {2}, r2", 
+            "mov {3}, r3", 
+            out(reg) syscall_n, out(reg) arg0, out(reg) arg1, out(reg) arg2
+        ); 
+    }
+
+    log_debug!("\n### SVCAll Handler ###");
+
+    // Handle the syscall based on the value of R0
+    match syscall_n {
+        0 => {
+            // SYS_EXIT
+            log_debug!("[SYS_EXIT] Return code {:#x}",arg0);
+            interrupt::free(|_cs| {
+                let mut system_process = SYSTEM_PROCESS.lock();
+                system_process.exit_current_process();
+            });
+        }
+        1 => {
+            // SYS_PRINT
+            log_info!("[SYS_PRINT] {:#x}",arg0);
+        }
+        _ => {
+            log_debug!("Unknown syscall : {}", syscall_n);
+        }
     }
 }
 
+/// PendSV_Handler performing context switch
+/// 
+/// This function saves the current process state, call the scheduler to get the next process, 
+/// and restores the state of this process.
+/// It also handles the enabling  and disabling of interrupts during the context switch to ensure atomicity.
+/// 
+/// PendSV_Handler saves registers r4 to r11 on top of the Exception frame
+/// 
+/// Exception frame on stack
+/// ```
+/// +--------+ < SP
+/// | R0     |
+/// +--------+
+/// | R1     |
+/// +--------+
+/// | R2     |
+/// +--------+
+/// | R3     |
+/// +--------+
+/// | R12    |
+/// +--------+
+/// | LR     |
+/// +--------+
+/// | PC     |
+/// +--------+
+/// | RETPSR |
+/// +--------+
+/// ```
+///
+/// # Process Flow
+/// - Disables interrupts to ensure atomicity during context switching.
+/// - Saves the state (stack pointer and callee-saved registers) of the current process.
+/// - Schedules the next process using the scheduler.
+/// - Restores the state (stack pointer and callee-saved registers) of the next process.
+/// - Re-enables interrupts and returns to the process that will resume execution.
+#[unsafe(no_mangle)]
+#[allow(static_mut_refs)]
+pub unsafe extern "C" fn PendSV_Handler() {
+    log_debug!("\n### PENDSV Handler ###");
+
+    // Disable interrupts
+    unsafe {
+        asm!(
+            "CPSID I",
+            "isb"
+        );  
+    }
+
+    unsafe{
+        if CURRENT_PROCESS_SP != 0 {
+            // Save the current process state
+            asm!(
+                "
+                mrs r0, psp             // Get the process stack pointer
+                stmdb r0!, {{r4-r11}}   // Store callee-saved registers on process stack
+                ldr r1, =CURRENT_PROCESS_SP
+                str r0, [r1]            // Save PSP to current process state
+            ");
+        }
+
+        interrupt::free(|_cs| {
+            let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
+            system_process.schedule_next_process();
+        });
+        log_debug!("CURRENT_PROCESS_SP : {:#x}",CURRENT_PROCESS_SP);
+        log_debug!("NEXT_PROCESS_SP : {:#x}",NEXT_PROCESS_SP);
+
+        if NEXT_PROCESS_SP != 0 {
+            // Load the next process state
+            asm!(
+                "ldr r2, =NEXT_PROCESS_SP",
+                "ldr r0, [r2]",             // Load PSP of next process
+                "ldmia r0!, {{r4-r11}}",// Restore callee-saved registers
+                "msr psp, r0",              // Update process stack pointer
+                "ldr r2, =CURRENT_PROCESS_SP",
+                "str r0, [r2]"            // Save PSP to current process state
+            );
+        }
+
+        interrupt::free(|_cs| {
+            let system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
+            system_process.enable_current_mpu();
+        });
+
+        asm!(
+            "CPSIE I",  // Enable interrupts
+            "isb",
+            "ldr lr, =0xFFFFFFFD", // EXC_RETURN = 0xFFFFFFFD => return to Thread mode with Process stack
+            "bx lr", // Return from exception
+            options(noreturn)
+        );
+    }
+}
+
+// Pointers to the current and next process stack pointer
+#[unsafe(no_mangle)]
+pub static mut CURRENT_PROCESS_SP: u32 = 0;
+#[unsafe(no_mangle)]
+pub static mut NEXT_PROCESS_SP: u32 = 0;
+
+pub fn trigger_pendsv() {
+    const ICSR_ADDR: u32 = 0xE000ED04; // Interrupt Control State Register
+    const PENDSVSET: u32 = 1 << 28; // PendSV Set-Pending bit
+
+    let icsr = ICSR_ADDR as *mut u32;
+    unsafe {
+    core::ptr::write_volatile(icsr, PENDSVSET);
+    }
+}

@@ -1,3 +1,6 @@
+mod linked_list;
+pub use linked_list::LinkedList; 
+
 pub mod macros {
     #![macro_use]
 
@@ -14,6 +17,13 @@ pub mod macros {
             if(!crate::memory_management::heap::check_cookie($ptr)){
                 panic!("Heap corruption detected!");
             }
+        }
+    }
+    
+    #[macro_export]
+    macro_rules! log_info {
+        ($($arg:tt)*) => {
+            cortex_m_semihosting::hprintln!("{}", format_args!($($arg)*)).ok()
         };
     }
 }

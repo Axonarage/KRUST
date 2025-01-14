@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["allocator","heap"]};
+window.SIDEBAR_ITEMS = {"mod":["allocator","heap","mpu"]};

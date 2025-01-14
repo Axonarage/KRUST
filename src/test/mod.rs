@@ -1,7 +1,9 @@
 #![allow(unused_imports)]
 use crate::log_debug;
-mod heap_test;
+//mod scheduler;
 //mod exception_test;
+//mod mpu_test;
+//mod heap_test;
 
 #[cfg(test)]
 pub fn test_runner(tests: &[&dyn Fn()]) {

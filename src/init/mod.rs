@@ -47,9 +47,9 @@ use core::sync::atomic::{compiler_fence, Ordering};
 mod panic;
 mod handlers;
 mod systick;
-pub use crate::init::systick::start_sys_tick;
+pub use crate::init::systick::SysTick;
 use crate::main;
-
+pub use crate::init::handlers::{CURRENT_PROCESS_SP, NEXT_PROCESS_SP};
 
 #[repr(C)]
 #[allow(non_snake_case)]
@@ -63,10 +63,10 @@ pub struct ExceptionsHandlers {
     Reserved_8: u32,
     Reserved_9: u32,
     Reserved_10: u32,
-    SVCall: unsafe extern "C" fn() -> !,
+    SVCall: unsafe extern "C" fn(),
     Reserved_12: u32,
     Reserved_13: u32,
-    PendSV: unsafe extern "C" fn() -> !,
+    PendSV: unsafe extern "C" fn(),
     SysTick: unsafe extern "C" fn()
 }
 
@@ -91,7 +91,7 @@ pub static _EXCEPTIONS: ExceptionsHandlers = ExceptionsHandlers {
     SVCall: handlers::SVCallHandler,
     Reserved_12: 0,
     Reserved_13: 0,
-    PendSV: handlers::DefaultHandler,
+    PendSV: handlers::PendSV_Handler,
     SysTick: handlers::SysTickHandler
 };
 
@@ -105,6 +105,54 @@ pub unsafe fn enable_system_handler_fault() {
         shcsr_value |= 1 << 16; // Set the MEMFAULTENA bit
 
         core::ptr::write_volatile(SHCSR_ADDR as *mut u32, shcsr_value);
+    }
+}
+
+pub unsafe fn setup_priority_handler() {
+    /*
+        System Handler Priority Registers (SHPRx)
+
+        SHPR1 :
+            Memory Management Fault : PRI_4  - Bits 0-7
+            Bus Fault               : PRI_5  - Bits 15-8
+            Usage Fault             : PRI_6  - Bits 23-16
+        SHPR2 :
+            SVCall                  : PRI_11 - Bits 31-24
+        SHPR3 :
+            PendSV                  : PRI_14 - Bits 23-16
+            SysTick                 : PRI_15 - Bits 31-24
+     */
+
+     /*
+        PendSV : 0
+        SysTick : 0
+        SVCall : 2
+      */
+
+    #[allow(dead_code)]
+    unsafe {
+        const SHPR1_ADDR: u32 = 0xE000ED18;
+        const SHPR2_ADDR: u32 = 0xE000ED1C;
+        const SHPR3_ADDR: u32 = 0xE000ED20;
+
+
+        let mut shpr3_value: u32 = core::ptr::read_volatile(SHPR3_ADDR as *const u32);
+
+        // Modify SHPR3:
+        // PendSV (PRI_14: Bits 23-16) -> Priority 0
+        // SysTick (PRI_15: Bits 31-24) -> Priority 0
+        shpr3_value &= !(0xFF << 16); // Clear bits for PendSV
+        shpr3_value &= !(0xFF << 24); // Clear bits for SysTick
+        shpr3_value |= 0x00 << 16;    // Set PendSV to 0
+        shpr3_value |= 0x00 << 24;    // Set SysTick to 0
+        core::ptr::write_volatile(SHPR3_ADDR as *mut u32, shpr3_value);
+
+        // Modify SHPR2:
+        // SVCall (PRI_11: Bits 31-24) -> Priority 2
+        let mut shpr2_value: u32 = core::ptr::read_volatile(SHPR2_ADDR as *const u32);
+        shpr2_value &= !(0xFF << 24); // Clear bits for SVCall
+        shpr2_value |= 0x02 << 24;    // Set SVCall to 2
+        core::ptr::write_volatile(SHPR2_ADDR as *mut u32, shpr2_value);
     }
 }
 
@@ -157,8 +205,6 @@ pub extern "C" fn Reset() -> ! {
     unsafe {
         init_data(start,&_sidata,end.offset_from(start) as usize);
     }
-
-    systick::init_sys_tick(0x00FF_FFFF);
 
     // main() trampoline
     #[inline(never)]

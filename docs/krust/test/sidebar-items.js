@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["heap_test"]};
+window.SIDEBAR_ITEMS = {};

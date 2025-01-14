@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["BusFaultHandler","DefaultHandler","FaultHandler","GetFaultAddress","HardFaultHandler","MemoryManagementFaultHandler","NMIHandler","SVCallHandler","SysTickHandler","UsageFaultHandler"]};
+window.SIDEBAR_ITEMS = {"fn":["BusFaultHandler","DefaultHandler","FaultHandler","GetFaultAddress","HardFaultHandler","MemoryManagementFaultHandler","NMIHandler","PendSV_Handler","SVCallHandler","SysTickHandler","UsageFaultHandler","trigger_pendsv"],"static":["CURRENT_PROCESS_SP","NEXT_PROCESS_SP"]};
