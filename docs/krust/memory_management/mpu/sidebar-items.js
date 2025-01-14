@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MPU_REGION_ENABLE"],"enum":["sizeRegion"],"fn":["write_mpu_ctrl","write_mpu_rasr","write_mpu_rbar","write_mpu_rnr"],"mod":["mpu_perm","mpu_type"],"struct":["Mpu","MpuRegion"]};

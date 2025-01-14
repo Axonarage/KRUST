@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ALIGNMENT","ALIGNMENT_MASK","BLOCK_HEADER_SIZE","HEAP_SIZE","MINIMUM_BLOCK_SIZE"],"fn":["allocate","deallocate","get_free_heap_size","initialize_heap","reset_heap"],"static":["END","FREE_BYTES_REMAINING","HEAP","HEAP_INIT","START"],"struct":["BlockLink"]};
