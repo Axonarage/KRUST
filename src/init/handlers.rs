@@ -527,6 +527,11 @@ pub unsafe extern "C" fn PendSV_Handler() {
             );
         }
 
+        interrupt::free(|_cs| {
+            let system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
+            system_process.enable_current_mpu();
+        });
+
         asm!(
             "CPSIE I",  // Enable interrupts
             "isb",

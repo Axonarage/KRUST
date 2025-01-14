@@ -1,5 +1,5 @@
 /// Représente une région MPU
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct MpuRegion {
     base_address: u32,
     size: u32,
@@ -8,6 +8,7 @@ pub struct MpuRegion {
 }
 
 /// Gestionnaire de la MPU
+#[derive(PartialEq, Clone, Copy)]
 pub struct Mpu {
     regions: [Option<MpuRegion>; 8],
 }
@@ -24,13 +25,12 @@ impl Mpu {
     pub fn configure_region(&mut self, 
         number: u8, 
         base_address: u32, 
-        _size: sizeRegion, 
+        size: u32, 
         attributes: u32
     ) -> Result<(), &'static str> {
         if number >= 8 {
             return Err("Numéro de région invalide");
         }
-        let size : u32 = _size as u32;
         let region = MpuRegion {
             base_address,
             size,

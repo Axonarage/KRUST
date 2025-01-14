@@ -15,7 +15,7 @@ pub fn createRegion() {
                                 mpu::mpu_type::TYPE_NORMAL |
                                 mpu::mpu_type::SHAREABLE;
 
-    match mpu.configure_region(0, full_access_addr, mpu::sizeRegion::SIZE_1KB, attributes_full_access) {
+    match mpu.configure_region(0, full_access_addr, mpu::sizeRegion::SIZE_1KB as u32, attributes_full_access) {
         Ok(_) => log_debug!("Région 0 (FULL_ACCESS) configurée"),
         Err(e) => log_debug!("Erreur config région 2: {}", e),
     }.expect("REASON");
@@ -27,7 +27,7 @@ pub fn createRegion() {
                                 mpu::mpu_type::TYPE_NORMAL |
                                 mpu::mpu_type::SHAREABLE;
 
-    match mpu.configure_region(1, no_access_addr, mpu::sizeRegion::SIZE_1KB, attributes_no_access) {
+    match mpu.configure_region(1, no_access_addr, mpu::sizeRegion::SIZE_1KB as u32, attributes_no_access) {
         Ok(_) => log_debug!("Région 1 (NO_ACCESS) configurée"),
         Err(e) => log_debug!("Erreur config région 2: {}", e),
     }.expect("REASON");

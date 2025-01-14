@@ -1,14 +1,11 @@
-use core::u8;
+use core::{u8, ptr};
 
 use alloc::vec::Vec;
 
 use crate::log_debug;
-use core::ptr;
-use crate::memory_management::heap;
+use crate::memory_management::{heap, mpu::{self, Mpu, mpu_type, mpu_perm}};
 use crate::utils::LinkedList;
 use crate::init::{CURRENT_PROCESS_SP, NEXT_PROCESS_SP};
-
-type Unknown = u8;
 
 #[derive(Default,PartialEq,Clone,Copy)]
 #[allow(dead_code)]
@@ -28,7 +25,8 @@ const INIT_STACK_FRAME_SIZE: usize = size_of::<usize>() * 16;
 pub struct SystemProcess {
     last_proc_id: u16,
     process_list: LinkedList<Process>,
-    current_process_id: u16
+    current_process_id: u16,
+    current_mpu_conf: Option<Mpu>
 }
 
 unsafe impl Send for SystemProcess {}
@@ -39,7 +37,8 @@ impl SystemProcess {
         SystemProcess {
             last_proc_id: 0,
             process_list: LinkedList::new(),
-            current_process_id: 0
+            current_process_id: 0,
+            current_mpu_conf: None
         }
     }
 
@@ -100,7 +99,13 @@ impl SystemProcess {
         let sp = stack as usize + DEFAULT_STACK_SIZE - INIT_STACK_FRAME_SIZE; // Calculate initial SP
         self.create_init_stack_frame(sp as *mut u8,entry_point);
 
-        let new_proc = Process::new(name, pid,stack, sp as u32, entry_point, priority);
+        let mut new_proc = Process::new(name, pid,stack, sp as u32, entry_point, priority);
+
+        // setup MPU region for code and stack 
+        let base_attr_region = mpu::MPU_REGION_ENABLE | mpu_type::TYPE_NORMAL;
+        let _ = new_proc.proc_mpu.configure_region(0, code_ptr.as_ptr() as u32,self.mpu_region_size_from_memory_len(code_len), base_attr_region | mpu_perm::PRIVILEGED_RW_UNPRIVILEGED_RO);
+        let _ = new_proc.proc_mpu.configure_region(1, stack as u32,self.mpu_region_size_from_memory_len(DEFAULT_STACK_SIZE), base_attr_region | mpu_perm::FULL_ACCESS);
+
         self.process_list.add(new_proc);
         return pid;
 
@@ -186,6 +191,30 @@ impl SystemProcess {
         }
     }
 
+    pub fn enable_current_mpu(&self) {
+        self.current_mpu_conf.unwrap().enable();
+    }
+
+    pub fn disable_current_mpu(&self) {
+        self.current_mpu_conf.unwrap().disable();
+    }
+
+    fn mpu_region_size_from_memory_len(&self, size: usize) -> u32 {
+        (self.next_power_of_two_exponent(size) + 1) as u32
+    }
+
+    fn next_power_of_two_exponent(&self, n: usize) -> usize {
+        if n < 2 { return n; }
+
+        let mut p = 1;
+        let mut e = 0;
+        while p < n { 
+            p <<= 1; 
+            e += 1
+        }
+        e
+    }
+
     /// Schedules the next process to run.
     /// This function also handles killing processes that have finished execution.
     ///
@@ -227,13 +256,12 @@ impl SystemProcess {
         // Iterate over the LinkedList to find the idle and running processes
         for process in self.process_list.iter_mut() {
             if process.status == ProcStatus::Running {
-                log_debug!("Current Process: {}", process.proc_name);
-                log_debug!("Priority : {}", process.priority);
+                log_debug!("Current Process: {} (Priority {})", process.proc_name, process.priority);
                 current_process = Some(process);
             } else if process.status == ProcStatus::Idle {
                 if let Some(priority) = highest_priority {
                     if process.priority == priority && next_process.is_none() {
-                        log_debug!("Next Process: {}", process.proc_name);
+                        log_debug!("Next Process: {} (Priority {})", process.proc_name, process.priority);
                         next_process = Some(process);
                     }
                 }
@@ -255,6 +283,8 @@ impl SystemProcess {
                 // Mark the next process as Running
                 next_process.status = ProcStatus::Running;
 
+                self.current_mpu_conf = Some(next_process.proc_mpu);
+
                 // Restore the next process state
                 unsafe {
                     NEXT_PROCESS_SP = next_process.stored_sp;
@@ -268,6 +298,8 @@ impl SystemProcess {
         } else if let Some(ref mut current_process) = current_process {
             // Set current_process as next_process
             current_process.status = ProcStatus::Running;
+
+            self.current_mpu_conf = Some(current_process.proc_mpu);
 
             unsafe {
                 NEXT_PROCESS_SP = current_process.stored_sp;
@@ -288,7 +320,7 @@ pub struct Process {
     proc_name: &'static str,
     proc_id: u16,
     status: ProcStatus,
-    mem_regions: [Unknown; 8],
+    proc_mpu: Mpu,
     stack: *mut u8,
     stored_sp: u32,
     entry_point: *mut u8,
@@ -301,7 +333,7 @@ impl Process {
             proc_name: name,
             proc_id,
             status: ProcStatus::Idle,
-            mem_regions: [0;8],
+            proc_mpu: Mpu::new(),
             stack: stack_ptr,
             stored_sp: init_sp,
             entry_point: entry_point,
