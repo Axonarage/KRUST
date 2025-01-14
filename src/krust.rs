@@ -18,14 +18,18 @@ mod memory_management;
 use crate::proc::SystemProcess;
 use init::SysTick;
 
-
 use lazy_static::lazy_static;
 use spin::Mutex;
 
 lazy_static! {
+    /// Hold reference to SystemProcess object
     pub static ref SYSTEM_PROCESS: Mutex<SystemProcess> = Mutex::new(SystemProcess::new());
 }
+
 /// Krust main function called by the Reset handler
+/// 
+/// Through function calls, enables System Handlers, System Heap and SysTick
+/// Create 2 process, proc_1 and proc_2, then start SysTick
 pub fn main() -> ! {
     
     log_debug!("=== KRUST ===");
@@ -43,7 +47,7 @@ pub fn main() -> ! {
 
     sys_tick = init::SysTick::new();
     sys_tick.init_sys_tick();
-    sys_tick.set_sys_tick_reload_us(10); //10_000_000
+    sys_tick.set_sys_tick_reload_us(10_000); //10_000_000
 
     let mut pid: u16;
 
@@ -80,9 +84,10 @@ pub fn main() -> ! {
     loop{}
 }
 
-const TEST_1_PROC_BYTE_CODE: &[u8;48] = b"\x08\x4a\x09\x49\x08\xf1\x01\x08\x88\x45\xfb\xdb\x09\xf1\x01\x09\x89\x45\xf7\xdb\x00\xf1\x01\x00\x88\x42\xf3\xdb\x4f\xf0\x00\x00\x02\x49\x00\xdf\xde\xc0\xad\x0b\xff\xff\xff\xff\x01\xc0\xad\x0b";
+/// proc_1 bytecode
+const TEST_1_PROC_BYTE_CODE: &[u8;64] = b"\x0b\x4a\x0c\x49\x08\xf1\x01\x08\x88\x45\xfb\xdb\x09\xf1\x01\x09\x89\x45\xf7\xdb\x4f\xf0\x01\x00\x07\x49\x00\xdf\x00\xf1\x01\x00\x88\x42\xef\xdb\x4f\xf0\x00\x00\x04\x49\x00\xdf\xfe\xe7\x00\xbf\xde\xc0\xad\x0b\xff\xff\xff\xff\x01\x70\xad\x0b\x01\xc0\xad\x0b";
 // LDR R2, =0xbadc0de
-// LDR R1, = 0xffffffff
+// LDR R1, =0xffffffff
 
 // loop_0:
 //     loop_1:
@@ -93,6 +98,9 @@ const TEST_1_PROC_BYTE_CODE: &[u8;48] = b"\x08\x4a\x09\x49\x08\xf1\x01\x08\x88\x
 //         ADD R9, R9, #1
 //         CMP R9, R1
 //         BLT loop_1
+//     MOV R0, #1
+//     LDR R1, =0xbad7001
+//     SVC 0
 //     ADD R0, R0, #1
 //     CMP R0, R1
 //     BLT loop_0
@@ -101,8 +109,11 @@ const TEST_1_PROC_BYTE_CODE: &[u8;48] = b"\x08\x4a\x09\x49\x08\xf1\x01\x08\x88\x
 // LDR R1, =0xbadc001
 // SVC 0
 
+// end_loop:
+//     B end_loop
 
-const TEST_2_PROC_BYTE_CODE: &[u8;48] = b"\x08\x4a\x09\x49\x08\xf1\x01\x08\x88\x45\xfb\xdb\x09\xf1\x01\x09\x89\x45\xf7\xdb\x00\xf1\x01\x00\x88\x42\xf3\xdb\x4f\xf0\x00\x00\x02\x49\x00\xdf\xde\xc0\xad\xde\xff\xff\xff\xff\x01\xc0\xad\xde";
+/// proc_2 bytecode
+const TEST_2_PROC_BYTE_CODE: &[u8;64] = b"\x0b\x4a\x0c\x49\x08\xf1\x01\x08\x88\x45\xfb\xdb\x09\xf1\x01\x09\x89\x45\xf7\xdb\x4f\xf0\x01\x00\x07\x49\x00\xdf\x00\xf1\x01\x00\x88\x42\xef\xdb\x4f\xf0\x00\x00\x04\x49\x00\xdf\xfe\xe7\x00\xbf\xde\xc0\xad\xde\xff\xff\xff\xff\x01\x70\xad\xde\x01\xc0\xad\xde";
 // LDR R2, =0xdeadc0de
 // LDR R1, = 0xffffffff
 
@@ -115,6 +126,9 @@ const TEST_2_PROC_BYTE_CODE: &[u8;48] = b"\x08\x4a\x09\x49\x08\xf1\x01\x08\x88\x
 //         ADD R9, R9, #1
 //         CMP R9, R1
 //         BLT loop_1
+//     MOV R0, #1
+//     LDR R1, =0xdead7001
+//     SVC 0
 //     ADD R0, R0, #1
 //     CMP R0, R1
 //     BLT loop_0
@@ -122,3 +136,6 @@ const TEST_2_PROC_BYTE_CODE: &[u8;48] = b"\x08\x4a\x09\x49\x08\xf1\x01\x08\x88\x
 // MOV R0, #0
 // LDR R1, =0xdeadc001
 // SVC 0
+
+// end_loop:
+//     B end_loop

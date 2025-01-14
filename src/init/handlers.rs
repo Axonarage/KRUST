@@ -1,5 +1,5 @@
 use core::sync::atomic::{compiler_fence, Ordering};
-use crate::log_debug;
+use crate::{log_debug, log_info};
 use core::arch::asm;
 use cortex_m::interrupt;
 use crate::SYSTEM_PROCESS;
@@ -389,47 +389,24 @@ fn GetFaultAddress(ADDR: u32) -> u32 {
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn SysTickHandler() {
-    log_debug!("\n### SYSTICK Handler ###");
-
-    // unsafe {
-    //     asm!(
-    //         "mrs r0, CONTROL",  // Read CONTROL
-    //         "bic r0, r0, #0b11",// Clear CONTROL.{nPRIV,SPSEL}  => privileged thread mode and use MSP
-    //         "msr CONTROL, r0",  // Update CONTROL
-    //         "isb"               // Flush pipeline
-    //     );
-    // }
-
-    // unsafe {
-    //     let reg0: usize;
-    //     let reg2: usize;
-    //     let reg4: usize;
-    //     let reg8: usize;
-    //     let reg9: usize;
-
-    //     asm!(" 
-    //         mov {0}, r0
-    //         mov {1}, r2
-    //         mov {2}, r4
-    //         mov {3}, r8
-    //         mov {4}, r9
-    //     ",out(reg) reg0,out(reg) reg2,out(reg) reg4,out(reg) reg8,out(reg) reg9);
-
-    //     log_debug!("R0 {:#x}\nR2 {:#x}\nR4 {:#x}\nR8 {:#x}\nR9 {:#x}",reg0,reg2,reg4,reg8,reg9);
-    // }
-
     trigger_pendsv();
-    
-    unsafe{
-        asm!(
-            "ldr lr, =0xFFFFFFF9", // EXC_RETURN = 0xFFFFFFF9 => return to Thread mode with Main stack
-            "bx lr"
-        );
-    }
-    return ;
 }
 
 
+/// Handles system calls (SVC) by processing the syscall number and its associated arguments.
+/// 
+/// This function is typically invoked when a system call (SVC) instruction is executed in user mode,
+/// and it performs the corresponding action based on the syscall number.
+///
+/// # Call Convention
+///     R0 <- SYSCALL_ID
+///     R1 <- ARG0
+///     R2 <- ARG1
+///     R3 <- ARG2
+/// 
+/// # Syscalls
+/// - `0`: SYS_EXIT - Terminates the current process.
+/// - `1`: SYS_PRINT - Prints arg0 in hex
 #[unsafe(no_mangle)]
 #[allow(unused_variables,unused_assignments)]
 pub unsafe extern "C" fn SVCallHandler() {
@@ -451,19 +428,19 @@ pub unsafe extern "C" fn SVCallHandler() {
 
     log_debug!("\n### SVCAll Handler ###");
 
-    // Handle the syscall based on the number in R0
+    // Handle the syscall based on the value of R0
     match syscall_n {
         0 => {
             // SYS_EXIT
             log_debug!("[SYS_EXIT] Return code {:#x}",arg0);
             interrupt::free(|_cs| {
-                let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
-                system_process.kill_current_process()
+                let mut system_process = SYSTEM_PROCESS.lock();
+                system_process.exit_current_process();
             });
         }
         1 => {
             // SYS_PRINT
-            log_debug!("[SYS_PRINT] {:#x}",arg0);
+            log_info!("[SYS_PRINT] {:#x}",arg0);
         }
         _ => {
             log_debug!("Unknown syscall : {}", syscall_n);
@@ -473,8 +450,13 @@ pub unsafe extern "C" fn SVCallHandler() {
 
 /// PendSV_Handler performing context switch
 /// 
-/// Exception frame on stack
+/// This function saves the current process state, call the scheduler to get the next process, 
+/// and restores the state of this process.
+/// It also handles the enabling  and disabling of interrupts during the context switch to ensure atomicity.
 /// 
+/// PendSV_Handler saves registers r4 to r11 on top of the Exception frame
+/// 
+/// Exception frame on stack
 /// ```
 /// +--------+ < SP
 /// | R0     |
@@ -494,17 +476,24 @@ pub unsafe extern "C" fn SVCallHandler() {
 /// | RETPSR |
 /// +--------+
 /// ```
-/// 
-/// PendSV_Handler also saves registers r4 to r11 on top of the Exception frame.
-/// 
 ///
+/// # Process Flow
+/// - Disables interrupts to ensure atomicity during context switching.
+/// - Saves the state (stack pointer and callee-saved registers) of the current process.
+/// - Schedules the next process using the scheduler.
+/// - Restores the state (stack pointer and callee-saved registers) of the next process.
+/// - Re-enables interrupts and returns to the process that will resume execution.
 #[unsafe(no_mangle)]
 #[allow(static_mut_refs)]
 pub unsafe extern "C" fn PendSV_Handler() {
     log_debug!("\n### PENDSV Handler ###");
 
+    // Disable interrupts
     unsafe {
-        asm!("CPSID I");  // Disable interrupts
+        asm!(
+            "CPSID I",
+            "isb"
+        );  
     }
 
     unsafe{
@@ -523,7 +512,7 @@ pub unsafe extern "C" fn PendSV_Handler() {
             let mut system_process = SYSTEM_PROCESS.lock(); // Lock the Mutex
             system_process.schedule_next_process();
         });
-
+        log_debug!("CURRENT_PROCESS_SP : {:#x}",CURRENT_PROCESS_SP);
         log_debug!("NEXT_PROCESS_SP : {:#x}",NEXT_PROCESS_SP);
 
         if NEXT_PROCESS_SP != 0 {
@@ -533,11 +522,14 @@ pub unsafe extern "C" fn PendSV_Handler() {
                 "ldr r0, [r2]",             // Load PSP of next process
                 "ldmia r0!, {{r4-r11}}",// Restore callee-saved registers
                 "msr psp, r0",              // Update process stack pointer
+                "ldr r2, =CURRENT_PROCESS_SP",
+                "str r0, [r2]"            // Save PSP to current process state
             );
         }
 
         asm!(
             "CPSIE I",  // Enable interrupts
+            "isb",
             "ldr lr, =0xFFFFFFFD", // EXC_RETURN = 0xFFFFFFFD => return to Thread mode with Process stack
             "bx lr", // Return from exception
             options(noreturn)
@@ -545,7 +537,7 @@ pub unsafe extern "C" fn PendSV_Handler() {
     }
 }
 
-// Pointers to the current and next process state (dummy implementation for now)
+// Pointers to the current and next process stack pointer
 #[unsafe(no_mangle)]
 pub static mut CURRENT_PROCESS_SP: u32 = 0;
 #[unsafe(no_mangle)]

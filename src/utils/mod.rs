@@ -10,4 +10,11 @@ pub mod macros {
             cortex_m_semihosting::hprintln!("{}", format_args!($($arg)*)).ok()
         };
     }
+
+    #[macro_export]
+    macro_rules! log_info {
+        ($($arg:tt)*) => {
+            cortex_m_semihosting::hprintln!("{}", format_args!($($arg)*)).ok()
+        };
+    }
 }
