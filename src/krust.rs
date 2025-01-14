@@ -47,7 +47,7 @@ pub fn main() -> ! {
 
     sys_tick = init::SysTick::new();
     sys_tick.init_sys_tick();
-    sys_tick.set_sys_tick_reload_us(10_000); //10_000_000
+    sys_tick.set_sys_tick_reload_us(10_000_000); //10_000_000
 
     let mut pid: u16;
 
@@ -78,64 +78,29 @@ pub fn main() -> ! {
         log_debug!("Entry Point : {:p}",proc.get_entry_point());
         log_debug!("PSP : {:#x}",proc.get_stack_ptr());
     }
+
+    demo_hook();
     
     sys_tick.start_sys_tick();
    
     loop{}
 }
 
-/// proc_1 bytecode
-const TEST_1_PROC_BYTE_CODE: &[u8;64] = b"\x0b\x4a\x0c\x49\x08\xf1\x01\x08\x88\x45\xfb\xdb\x09\xf1\x01\x09\x89\x45\xf7\xdb\x4f\xf0\x01\x00\x07\x49\x00\xdf\x00\xf1\x01\x00\x88\x42\xef\xdb\x4f\xf0\x00\x00\x04\x49\x00\xdf\xfe\xe7\x00\xbf\xde\xc0\xad\x0b\xff\xff\xff\xff\x01\x70\xad\x0b\x01\xc0\xad\x0b";
-// LDR R2, =0xbadc0de
-// LDR R1, =0xffffffff
+#[inline(never)]
+fn demo_hook() {
+    log_debug!("hook");
+}
 
-// loop_0:
-//     loop_1:
-//         loop_2:
-//             ADD R8, R8, #1
-//             CMP R8, R1
-//             BLT loop_2
-//         ADD R9, R9, #1
-//         CMP R9, R1
-//         BLT loop_1
+const TEST_1_PROC_BYTE_CODE: &[u8;28] = b"\x4f\xf0\x00\x04\x03\x4d\x4f\xf0\x01\x00\x03\x49\x00\xdf\xac\x42\xf6\xd0\xfc\xe7\xdd\xcc\xbb\xaa\x01\x70\xad\x0b";
+const TEST_2_PROC_BYTE_CODE: &[u8;28] = b"\x4f\xf0\x00\x04\x03\x4d\x4f\xf0\x01\x00\x03\x49\x00\xdf\xac\x42\xf6\xd0\xfc\xe7\xdd\xcc\xbb\xaa\x01\x70\xad\xde";
+
+// print_call:
+//     MOV R4, #0
 //     MOV R0, #1
 //     LDR R1, =0xbad7001
 //     SVC 0
-//     ADD R0, R0, #1
-//     CMP R0, R1
-//     BLT loop_0
 
-// MOV R0, #0
-// LDR R1, =0xbadc001
-// SVC 0
-
-// end_loop:
-//     B end_loop
-
-/// proc_2 bytecode
-const TEST_2_PROC_BYTE_CODE: &[u8;64] = b"\x0b\x4a\x0c\x49\x08\xf1\x01\x08\x88\x45\xfb\xdb\x09\xf1\x01\x09\x89\x45\xf7\xdb\x4f\xf0\x01\x00\x07\x49\x00\xdf\x00\xf1\x01\x00\x88\x42\xef\xdb\x4f\xf0\x00\x00\x04\x49\x00\xdf\xfe\xe7\x00\xbf\xde\xc0\xad\xde\xff\xff\xff\xff\x01\x70\xad\xde\x01\xc0\xad\xde";
-// LDR R2, =0xdeadc0de
-// LDR R1, = 0xffffffff
-
-// loop_0:
-//     loop_1:
-//         loop_2:
-//             ADD R8, R8, #1
-//             CMP R8, R1
-//             BLT loop_2
-//         ADD R9, R9, #1
-//         CMP R9, R1
-//         BLT loop_1
-//     MOV R0, #1
-//     LDR R1, =0xdead7001
-//     SVC 0
-//     ADD R0, R0, #1
-//     CMP R0, R1
-//     BLT loop_0
-
-// MOV R0, #0
-// LDR R1, =0xdeadc001
-// SVC 0
-
-// end_loop:
-//     B end_loop
+// loop:
+//     CMP     R4, #0xAABBCCDD
+//     BEQ     print_call
+//     B       loop 

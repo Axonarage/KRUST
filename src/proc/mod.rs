@@ -227,7 +227,7 @@ impl SystemProcess {
     /// This function will panic with the message `"NOTHING TO DO"` if it can't find a next process to schedule.
     pub fn schedule_next_process(&mut self) {
 
-        log_debug!("\n### CALL TO SCHED ###");
+        log_debug!("\n### SCHEDULER ###");
 
         // Find the next idle process and the current running process
         let mut next_process = None;
@@ -256,12 +256,12 @@ impl SystemProcess {
         // Iterate over the LinkedList to find the idle and running processes
         for process in self.process_list.iter_mut() {
             if process.status == ProcStatus::Running {
-                log_debug!("Current Process: {} (Priority {})", process.proc_name, process.priority);
+                log_debug!("Current Process: {} (P {})", process.proc_name, process.priority);
                 current_process = Some(process);
             } else if process.status == ProcStatus::Idle {
                 if let Some(priority) = highest_priority {
                     if process.priority == priority && next_process.is_none() {
-                        log_debug!("Next Process: {} (Priority {})", process.proc_name, process.priority);
+                        log_debug!("Next Process: {} (P {})", process.proc_name, process.priority);
                         next_process = Some(process);
                     }
                 }
