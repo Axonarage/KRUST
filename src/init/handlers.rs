@@ -520,8 +520,7 @@ pub unsafe extern "C" fn PendSV_Handler() {
                 "ldr r2, =NEXT_PROCESS_SP",
                 "ldr r0, [r2]",             // Load PSP of next process
                 "ldmia r0!, {{r4-r11}}",// Restore callee-saved registers
-                "ldr r1, =0xAABBCCDD",
-                "str r1, [r0]",
+                "ldr r4, =0xAABBCCDD",
                 "msr psp, r0",              // Update process stack pointer
                 "ldr r2, =CURRENT_PROCESS_SP",
                 "str r0, [r2]"            // Save PSP to current process state

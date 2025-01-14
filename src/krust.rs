@@ -21,6 +21,12 @@ use init::SysTick;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
+#[cfg(feature = "debug")]
+pub static ENABLE_DEBUG_LOG: bool = true;
+
+#[cfg(not(feature = "debug"))]
+pub static ENABLE_DEBUG_LOG: bool = false;
+
 lazy_static! {
     /// Hold reference to SystemProcess object
     pub static ref SYSTEM_PROCESS: Mutex<SystemProcess> = Mutex::new(SystemProcess::new());
@@ -47,7 +53,7 @@ pub fn main() -> ! {
 
     sys_tick = init::SysTick::new();
     sys_tick.init_sys_tick();
-    sys_tick.set_sys_tick_reload_us(10_000_000); //10_000_000
+    sys_tick.set_sys_tick_reload_us(10_000_000);
 
     let mut pid: u16;
 
@@ -79,16 +85,10 @@ pub fn main() -> ! {
         log_debug!("PSP : {:#x}",proc.get_stack_ptr());
     }
 
-    demo_hook();
-    
+    #[cfg(not(feature = "test"))]
     sys_tick.start_sys_tick();
    
     loop{}
-}
-
-#[inline(never)]
-fn demo_hook() {
-    log_debug!("hook");
 }
 
 const TEST_1_PROC_BYTE_CODE: &[u8;28] = b"\x4f\xf0\x00\x04\x03\x4d\x4f\xf0\x01\x00\x03\x49\x00\xdf\xac\x42\xf6\xd0\xfc\xe7\xdd\xcc\xbb\xaa\x01\x70\xad\x0b";
